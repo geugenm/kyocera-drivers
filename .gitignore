@@ -55,4 +55,5 @@ scripts/.fetched_drivers
 ppd/*
 !ppd/English
 cmake-build-debug/
+./build
 src/cups-2.1.1
