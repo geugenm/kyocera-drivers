@@ -1,3 +1,3 @@
 scripts/.fetched_drivers
+!ppd/English/**
 ppd/
-!ppd/English/**/
