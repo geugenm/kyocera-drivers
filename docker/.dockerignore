@@ -1,5 +1,6 @@
 # Ignore build artifacts
 build/
+.build/
 dist/
 *.o
 *.a
