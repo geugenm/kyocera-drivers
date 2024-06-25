@@ -8,7 +8,6 @@ add_subdirectory(libjbig)
 
 add_executable(rastertokpsl main.c rastertokpsl.c halfton.c)
 
-target_include_directories(rastertokpsl SYSTEM AFTER PUBLIC cups-2.1.1)
 target_include_directories(rastertokpsl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(rastertokpsl PRIVATE cupsimage cups unicode libjbig)
