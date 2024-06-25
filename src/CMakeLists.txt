@@ -6,16 +6,12 @@ find_library(cupsimage cupsimage REQUIRED)
 add_subdirectory(unicode)
 add_subdirectory(libjbig)
 
-add_library(rastertokpsl_base OBJECT
-        rastertokpsl.c
-        halfton.c)
+add_executable(rastertokpsl main.c rastertokpsl.c halfton.c)
 
-target_include_directories(rastertokpsl_base SYSTEM AFTER PUBLIC cups-2.1.1)
-target_include_directories(rastertokpsl_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(rastertokpsl SYSTEM AFTER PUBLIC cups-2.1.1)
+target_include_directories(rastertokpsl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_executable(rastertokpsl main.c)
-
-target_link_libraries(rastertokpsl PRIVATE rastertokpsl_base cupsimage cups unicode libjbig)
+target_link_libraries(rastertokpsl PRIVATE cupsimage cups unicode libjbig)
 
 # See https://github.com/tensorflow/tensorflow/issues/1171
 target_link_options(rastertokpsl PRIVATE "-lm")

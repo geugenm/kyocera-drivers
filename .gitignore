@@ -56,4 +56,5 @@ ppd/*
 !ppd/English
 cmake-build-debug/
 .build/
+build/
 src/cups-2.1.1
