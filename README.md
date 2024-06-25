@@ -2,7 +2,7 @@
 
 <div style="display: flex; justify-content: center;">
   <img src="img/ghidra.png" alt="Image 1" style="width: 100px; height: 100px; margin: 0 10px;">
-  <img src="img/ida.jpg" alt="Image 2" style="width: 120px; height: 100px; margin: 0 10px;">
+  <img src="img/ida.jpg" alt="Image 2" style="width: 125px; height: 105px; margin: 0 10px;">
 </div>
 
 ## Description

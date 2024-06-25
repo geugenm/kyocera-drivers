@@ -11,7 +11,8 @@ RUN pacman -Syu --noconfirm && \
     clang \
     cmake \
     git \
-    ninja
+    ninja \
+    cups
 
 # Copy the source code into the container
 COPY . /app
