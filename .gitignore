@@ -54,3 +54,5 @@ dkms.conf
 scripts/.fetched_drivers
 ppd/*
 !ppd/English
+cmake-build-debug/
+src/cups-2.1.1
