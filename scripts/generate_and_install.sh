@@ -1,12 +1,56 @@
 #!/usr/bin/env bash
 
 cat << EOF
-Kyocera PPD installer v.1.0.4
+Kyocera PPD installer v2.0
 
 This installer contains i386 and x86_64 linux drivers
 for Kyocera FS printers and multi-functional devices.
-> Kyocera FS-1020MFP
+Included devices:
 EOF
+
+base_path="../ppd"
+
+# Function to process a .ppd filename
+process_ppd_file() {
+  local filename="$1"
+
+  # Extract the desired part of the filename (without GDI, extension, and underscores replaced with spaces)
+  local name="${filename%%_*}"        # Remove everything after the first underscore
+  name="${name//_/ }"                 # Replace underscores with spaces
+  name="${name%GDI.*}"                # Remove extension
+
+  # Print the formatted name
+  echo "> ${name}"
+}
+
+# Check if base path exists
+if [[ ! -d "$base_path" ]]; then
+  echo "Error: Directory '$base_path' does not exist."
+  exit 1
+fi
+
+# Get a random subdirectory from the base path
+random_dir=$(find "$base_path" -type d ! -path "$base_path" -print | sort -R | head -n 1)
+
+# Check if a random directory was found
+if [[ -z "$random_dir" ]]; then
+  echo "Error: No subdirectories found in '$base_path'."
+  exit 1
+fi
+
+declare -a ppd_filenames
+
+# Find all .ppd files in the random directory
+find "$random_dir" -type f -name "*.ppd" -print | while read -r filename; do
+  # Extract filename without path
+  filename="${filename##*/}"  # Remove everything before the last slash (/)
+
+  # Add original filename to the array
+  ppd_filenames+=("$filename")
+
+  # Process the extracted filename (replace underscore with space)
+  process_ppd_file "${filename//_/ }"
+done
 
 install_drivers()
 {
@@ -17,8 +61,6 @@ install_drivers()
       echo Use "sudo" or start as root.
       exit
   fi
-
-  base_path="../ppd"
 
   # Get all entries (directories and files) in the current directory
   shopt -s nullglob  # Avoid listing no matches for patterns
@@ -91,10 +133,24 @@ install_drivers()
 if [[ "$1" == "--uninstall" ]]; then
   echo "Uninstalling Kyocera PPD drivers..."
 
-  rm -rf /usr/lib/cups/filter/{rastertokpsl-bin,rastertokpsl} \
-       /usr/share/cups/model/Kyocera/Kyocera_FS-1{020MFP}GDI.ppd
+  echo "Removing cups filters..."
+  rm -rf /usr/lib/cups/filter/{rastertokpsl-bin,rastertokpsl}
 
-  rmdir --ignore-missing /usr/share/cups/model/Kyocera
+  for filename in "${ppd_filenames[@]}"; do
+    full_path="/usr/share/cups/model/Kyocera/${filename}"
+
+    if [[ -f "$full_path" ]]; then
+      echo "Deleting: $full_path"
+      rm -f "$full_path"
+    else
+      echo "WARNING: File not found: $full_path"
+    fi
+  done
+
+  kyocera_ppd_dir="/usr/share/cups/model/Kyocera"
+  if [[ ! $(ls -A -d "${kyocera_ppd_dir}/*") ]]; then
+    rmdir ${kyocera_ppd_dir}
+  fi
 
   echo "Kyocera PPD drivers uninstalled successfully."
   exit 0
