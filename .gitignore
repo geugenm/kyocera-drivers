@@ -51,7 +51,7 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-scripts/.fetched_drivers
+.fetched_drivers
 ppd/*
 !ppd/English
 cmake-build-debug/

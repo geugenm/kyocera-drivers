@@ -11,5 +11,5 @@ add_executable(tstcodec tstcodec.c)
 target_link_libraries(tstcodec PRIVATE libjbig)
 
 add_executable(tstcodec85 tstcodec85.c)
-target_link_libraries(tstcodec PRIVATE libjbig)
+target_link_libraries(tstcodec85 PRIVATE libjbig)
 

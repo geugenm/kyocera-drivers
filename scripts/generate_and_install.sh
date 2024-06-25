@@ -3,8 +3,8 @@
 [[ $EUID -ne 0 ]] && exec sudo -k -p "[sudo] Enter password: " "$0" "$@"
 
 # Define paths for PPD files and filters (can be adjusted)
-base_path="${base_path:-../ppd}"
-filters_path="${filters_path:-../filters}"
+base_path="${base_path:-./ppd}"
+filters_path="${filters_path:-./filters}"
 
 display_installer_info()
 {

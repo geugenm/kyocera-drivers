@@ -19,6 +19,7 @@ if (USE_CPM)
 endif ()
 
 add_subdirectory(src)
+add_subdirectory(scripts)
 
 if (BUILD_TESTS)
     enable_testing()

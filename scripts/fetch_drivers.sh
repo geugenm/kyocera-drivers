@@ -28,6 +28,6 @@ echo "Extracting driver archive..."
 unzip -q "${temp_dir}/archive.zip" -d ${source_dir}  # Extract quietly (-q)
 
 # Extract and clean up tar.gz archives within the target directory
-find ${target_dir} -type f -name "*.tar.gz" -print -exec sh -c 'tar -xf {} -C ../ppd --wildcards "*.ppd"' \; # TODO: Fix hardcoded path ../ppd
+find ${target_dir} -type f -name "*.tar.gz" -print -exec sh -c 'tar -xf {} -C ./ppd --wildcards "*.ppd"' \; # TODO: Fix hardcoded path ../ppd
 
 echo "Kyocera drivers extracted successfully to: '${target_dir}'"

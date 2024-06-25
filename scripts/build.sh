@@ -1,39 +1,26 @@
 #!/bin/bash
 
-# Prompt the user to enter the name of the project directory
-read -r -p "Enter the name of the project directory (cd to): " project_directory
+script_dir=$(dirname "$(readlink -f "$0")")
 
-# Move up one level to the root directory of the project
-cd "$project_directory" || { echo "Error: Project directory not found."; exit 1; }
-
-# Check if the CMakePresets.json file exists
-if [ ! -f "CMakePresets.json" ]; then
-  echo "Error: CMakePresets.json file not found in ${project_directory}."
+if [[ ! -f "CMakePresets.json" ]]; then
+  echo "Error: CMakePresets.json not found." >&2
   exit 1
 fi
 
-# Get list of available presets from CMakePresets.json
-presets=$(grep -oP '(?<="name": ")[^"]*' CMakePresets.json)
+presets=$(jq -r '.configurePresets[].name' CMakePresets.json)
+
 if [[ -z "$presets" ]]; then
-  echo "Error: no presets found in CMakePresets.json"
+  echo "Error: No presets found in CMakePresets.json." >&2
   exit 1
 fi
 
-# Display the available presets to the user and prompt for input
 echo "Available presets:"
-for preset in $presets; do
-  echo " - $preset"
+select chosen_preset in $presets; do
+    if [[ -n "$chosen_preset" ]]; then
+        break
+    fi
+    echo "Invalid choice. Please try again." >&2
 done
-read -r -p "Enter the name of the preset you want to build: " chosen_preset
 
-# Check if the chosen preset exists in the CMakePresets.json file
-if ! echo "$presets" | grep -q "$chosen_preset"; then
-  echo "Error: Chosen preset does not exist."
-  exit 1
-fi
-
-
-# Build the chosen preset
-cmake --preset="$chosen_preset" .
-cd build/"${chosen_preset,,}" || { echo "Error: Failed to change directory."; exit 1; }
-cmake --build . --config "$chosen_preset"
+cmake --preset "$chosen_preset" -S . -B ".build/${chosen_preset,,}"
+cmake --build ".build/${chosen_preset,,}" --config "$chosen_preset"
