@@ -5,10 +5,11 @@
 #include <math.h>
 #include <signal.h>
 
+#include <ConvertUTF.h>
+#include <jbig.h>
+
 #include "halfton.h"
-#include "libjbig/jbig.h"
 #include "rastertokpsl.h"
-#include "unicode/ConvertUTF.h"
 
 #define LOBYTE(w) ((unsigned char)(w))
 #define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
@@ -52,8 +53,6 @@ unsigned char *Lines;
 int insideBandCounter;
 
 // StartPage
-// unsigned printarea_x;
-// unsigned printarea_y;
 unsigned WidthInBytes;
 unsigned iRealPlaneSize;
 unsigned iPlaneSize;
@@ -64,28 +63,18 @@ unsigned char *Planes;
 unsigned char *Planes8;
 unsigned char *OutBuffer;
 
-// EndPage
-// unsigned sectionEndFlag;
-
 // SendPlanesData
 unsigned y; /* Current line */
 unsigned fWriteJBigHeader;
 unsigned compressedLength;
 
-int isBigEndian()
+void start_page(cups_page_header2_t *page_header)
 {
-    return (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
-}
-
-void Setup(void) {}
-
-void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t *header)
-{
-    signed short orientation1, orientation2; // [sp+68h] [bp-18h]@4
-    signed short pageSizeEnum;               // [sp+78h] [bp-8h]@1
+    signed short orientation1, orientation2;
+    signed short pageSizeEnum;
 
     pageSizeEnum = 0;
-    switch ((int)header->Orientation)
+    switch ((int)page_header->Orientation)
     {
         case 5:
             orientation1 = 1;
@@ -208,20 +197,17 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t *header)
         }
     }
     WidthInBytes = (unsigned)floor(
-        32.0 * ceil((4 * ((header->cupsWidth + 31) >> 5)) / 32.0));
-    // iLineSize = (unsigned) floor(header->cupsBytesPerLine /
-    // header->cupsBitsPerColor);
+        32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0));
     iRealPlaneSize = WidthInBytes << 8;
     iPlaneSize     = iRealPlaneSize;
     iPlaneSize8    = iPlaneSize * 8;
-    fprintf(stderr, "INFO: StartPage()\n");
-    fprintf(stderr, "INFO: cupsHeight=%d(0x%X)\n", header->cupsHeight,
-            header->cupsHeight);
-    fprintf(stderr, "INFO: cupsWidth=%d(0x%X) 0x%X\n", header->cupsWidth,
-            header->cupsWidth, header->cupsWidth >> 3);
+    fprintf(stderr, "INFO: start_page()\n");
+    fprintf(stderr, "INFO: cupsHeight=%d(0x%X)\n", page_header->cupsHeight,
+            page_header->cupsHeight);
+    fprintf(stderr, "INFO: cupsWidth=%d(0x%X) 0x%X\n", page_header->cupsWidth,
+            page_header->cupsWidth, page_header->cupsWidth >> 3);
     fprintf(stderr, "INFO: WidthInBytes=%d(0x%X)\n", WidthInBytes,
             WidthInBytes);
-    // fprintf(stderr, "INFO: iLineSize=%d(0x%X)\n", iLineSize, iLineSize);
     fprintf(stderr, "INFO: iRealPlaneSize=%d(0x%X)\n", iRealPlaneSize,
             iRealPlaneSize);
     fprintf(stderr, "INFO: iPlaneSize=%d(0x%X)\n", iPlaneSize, iPlaneSize);
@@ -238,78 +224,51 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t *header)
     OutBuffer = (unsigned char *)malloc(0x100000);
     memset(OutBuffer, 0, 0x100000);
     // if (!skipFlag) {
-    printf("\x1B$0P");   // fwrite("\x1B$0P", 1, 4, fp);
-    pwrite_int_start(3); // fprintf(fp, "%c%c%c%c@@@@", 3, 0, 0, 0);
-    pwrite_short(
-        orientation1); // fprintf(fp, "%c%c", LOBYTE(v15), HIBYTE(v15));
-    pwrite_short(
-        orientation2); // fprintf(fp, "%c%c", LOBYTE(v16), HIBYTE(v16));
+    printf("\x1B$0P");
+    pwrite_int_start(3);
+    pwrite_short(orientation1);
+    pwrite_short(orientation2);
     unsigned short metricWidth =
-        (unsigned short)floor(10.0 * (header->PageSize[0] * 0.352777778));
+        (unsigned short)floor(10.0 * (page_header->PageSize[0] * 0.352777778));
     unsigned short metricHeight =
-        (unsigned short)floor(10.0 * (header->PageSize[1] * 0.352777778));
+        (unsigned short)floor(10.0 * (page_header->PageSize[1] * 0.352777778));
     fprintf(stderr, "INFO: metricWidth=%d\n", metricWidth);
     fprintf(stderr, "INFO: metricHeight=%d\n", metricHeight);
-    pwrite_short(metricWidth); // fprintf(fp, "%c%c", LOBYTE(v11), HIBYTE(v11));
-    pwrite_short(metricHeight); // fprintf(fp, "%c%c", LOBYTE(v12),
-                                // HIBYTE(v12));
-    pwrite_short(pageSizeEnum); // fprintf(fp, "%c%c", LOBYTE(v17),
-                                // HIBYTE(v17));
-    pwrite_short(
-        header->cupsMediaType); // fprintf(fp, "%c%c", LOBYTE(h->cupsMediaType),
-                                // HIBYTE(h->cupsMediaType));
-    //}
+    pwrite_short(metricWidth);
+    pwrite_short(metricHeight);
+    pwrite_short(pageSizeEnum);
+    pwrite_short(page_header->cupsMediaType);
 }
 
-void EndPage(int sectionEnd)
+void end_page(int section_end)
 {
-    fprintf(stderr, "INFO: EndPage()\n");
-    // if (!skipFlag) {
-    printf("\x1B$0F");   // fwrite("\x1B$0F", 1, 4, fp);
-    pwrite_int_start(1); // fprintf(fp, "%c%c%c%c@@@@", 1, 0, 0, 0);
-    /* sectionEndFlag = 0;
-    if (pdfFlag && endOfDataFlag) {
-            sectionEndFlag = 1;
-    }
-    else if (pdfFlag || (Page % (unsigned) floor(ceil((float) pages / (float)
-    nup)))) { if (!pdfFlag && endOfDataFlag) sectionEndFlag = 1;
-    }
-    else {
-            sectionEndFlag = 1;
-    } */
-    fprintf(stderr, "INFO: sectionEndFlag=%d\n", sectionEnd);
-    pwrite_int(sectionEnd); // fprintf(fp, "%c%c%c%c", LOBYTE(sectionEndFlag),
-                            // HIBYTE(sectionEndFlag), LOBYTE(sectionEndFlag >>
-                            // 16), HIBYTE( sectionEndFlag >> 16));
+    fprintf(stderr, "INFO: end_page()\n");
+    printf("\x1B$0F");
+    pwrite_int_start(1);
+    fprintf(stderr, "INFO: sectionEndFlag=%d\n", section_end);
+    pwrite_int(section_end);
     fflush(stdout);
-    //        skipFlag = 0;
-    //}
     free(Planes);
-    // Planes = NULL;
     free(Planes8);
-    // Planes8 = NULL;
     free(Lines);
-    // Lines = NULL;
     free(nextLines);
-    // nextLines = NULL;
     if (OutBuffer != 0)
     {
         free(OutBuffer);
-        // OutBuffer = NULL;
     }
 }
 
-void Shutdown(void)
+void shutdown_printer()
 {
     printf("%c%c", '\x1B', 'E');
 }
 
-void CancelJob(int sig)
+void cancel_job(int signal)
 {
     for (int i = 0; i <= 599; ++i)
         putchar(0);
-    EndPage(1);
-    Shutdown();
+    end_page(1);
+    shutdown_printer();
     exit(0);
 }
 
@@ -347,13 +306,13 @@ void SendPlanesData(cups_page_header2_t *header)
         {
             if (y && insideBandCounter == 255)
             {
-                HalftoneDibToDib(Planes8, Planes, 8 * WidthInBytes, 256,
-                                 light[1], light[0]);
+                halftone_dib_to_dib(Planes8, Planes, 8 * WidthInBytes, 256,
+                                    light[1], light[0]);
             }
             else if (header->cupsHeight - 1 == y)
             {
-                HalftoneDibToDib(Planes8, Planes, 8 * WidthInBytes, numVer,
-                                 light[1], light[0]);
+                halftone_dib_to_dib(Planes8, Planes, 8 * WidthInBytes, numVer,
+                                    light[1], light[0]);
             }
             fWriteJBigHeader = 1;
             compressedLength = 0;
@@ -507,42 +466,18 @@ void SendPlanesData(cups_page_header2_t *header)
         if ((y && insideBandCounter == 255) || (header->cupsHeight - 1 == y))
         {
             printf("\x1B$0R");
-            pwrite_int_start(
-                iPlaneSize / 4 +
-                10); // fprintf(fp, "%c%c%c%c@@@@", LOBYTE(v28), HIBYTE(v28),
-                     // LOBYTE(v28 >> 16), HIBYTE(v28 >> 16));
-            pwrite_int(
-                header->cupsWidth); // fprintf(fp, "%c%c%c%c",
-                                    // LOBYTE(printarea_x), HIBYTE(printarea_x),
-                                    // LOBYTE(printarea_x >> 16),
-                                    // HIBYTE(printarea_x >> 16));
-            pwrite_int(
-                WidthInBytes);  // fprintf(fp, "%c%c%c%c", LOBYTE(WidthInBytes),
-                                // HIBYTE(WidthInBytes), LOBYTE(WidthInBytes >>
-                                // 16), HIBYTE(WidthInBytes >> 16));
-            pwrite_int(numVer); // fprintf(fp, "%c%c%c%c", LOBYTE(numVer),
-                                // HIBYTE(numVer), LOBYTE(numVer >> 16),
-                                // HIBYTE(numVer >> 16));
-            pwrite_int(
-                numVertPacked); // fprintf(fp, "%c%c%c%c",
-                                // LOBYTE(numVertPacked), HIBYTE(numVertPacked),
-                                // LOBYTE(numVertPacked >> 16),
-                                // HIBYTE(numVertPacked >> 16));
-            pwrite_int(iRealPlaneSize); // fprintf(fp, "%c%c%c%c",
-                                        // LOBYTE(iRealPlaneSize),
-                                        // HIBYTE(iRealPlaneSize),
-                                        // LOBYTE(iRealPlaneSize >> 16),
-                                        // HIBYTE(iRealPlaneSize >> 16));
-            pwrite_int(
-                iPlaneSize); // fprintf(fp, "%c%c%c%c", LOBYTE(iPlaneSize),
-                             // HIBYTE(iPlaneSize), LOBYTE(iPlaneSize >> 16),
-                             // HIBYTE(iPlaneSize >> 16));
-            pwrite_int(0);   // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-            pwrite_int(
-                y - 255);  // fprintf(fp, "%c%c%c%c", LOBYTE(v30), HIBYTE(v30),
-                           // LOBYTE(v30 >> 16), HIBYTE(v30 >> 16));
-            pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-            pwrite_int(1); // fprintf(fp, "%c%c%c%c", 1, 0, 0, 0);
+            pwrite_int_start(iPlaneSize / 4 + 10);
+
+            pwrite_int(header->cupsWidth);
+            pwrite_int(WidthInBytes);
+            pwrite_int(numVer);
+            pwrite_int(numVertPacked);
+            pwrite_int(iRealPlaneSize);
+            pwrite_int(iPlaneSize);
+            pwrite_int(0);
+            pwrite_int(y - 255);
+            pwrite_int(0);
+            pwrite_int(1);
         }
         memcpy(Planes + (numVer - insideBandCounter - 1) * WidthInBytes, Lines,
                WidthInBytes);
@@ -573,27 +508,11 @@ void SendPlanesData(cups_page_header2_t *header)
     }
 }
 
-/* original stupid implementation converter ascii -> utf16
-void asciitounicode(uint16_t *dest, char *source) {
-        uint16_t *v4 = dest;
-        uint8_t *v3 = source;
-        int swap = isBigEndian();
-        while (*v3) {
-                *v4 = *v3;
-                if (swap)
-                        *v4 = ((LOBYTE(*v4) << 8) | HIBYTE(*v4) >> 8);
-                v3++;
-                v4++;
-        }
-}
-*/
-
 char *timestring(char *out)
 {
-    char buffer[14]; // [sp+16h] [bp-22h]@1
+    char buffer[14];
     time_t v3 = time(0);
 
-    // struct tm *v4 = localtime(&v3);
     strftime((char *)&buffer, sizeof(buffer), "%Y%m%d%H%M%S", localtime(&v3));
     return strncpy(out, (char *)&buffer, sizeof(buffer));
 }
@@ -602,43 +521,24 @@ char *timestring(char *out)
  * usage rastertopcl job-id user title copies options [raster_file]
  * cups_raster_t *ras;                Raster stream for printing
  */
-int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
-                 int copies, const char *opts)
+int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
+                 const char *job_title, int copies_number,
+                 const char *printing_options)
 {
     cups_page_header2_t header; /* Page header from file */
-    // ppd_file_t *ppd;                /* PPD file - not used in the
-    // rastertokpsl anymore */
 
-    sigset(SIGTERM, CancelJob);
-
-    /*
-     * Make sure status messages are not buffered...
-     */
+    sigset(SIGTERM, cancel_job);
 
     setbuf(stderr, 0);
 
     int num_options        = 0;
     cups_option_t *options = NULL;
-    num_options            = cupsParseOptions(opts, 0, &options);
-
-    /*
-     * Initialize the print device...
-     */
-
-    // ppd = ppdOpenFile(getenv("PPD"));
-
-    /*
-     * Process pages as needed...
-     */
+    num_options            = cupsParseOptions(printing_options, 0, &options);
 
     Page = 0;
 
-    while (cupsRasterReadHeader2(ras, &header))
+    while (cupsRasterReadHeader2(raster_stream, &header))
     {
-        // do {
-        // memset(&header, 0, sizeof(header));
-        // endOfDataFlag = cupsRasterReadHeader2(ras, &header) == 0;
-
         const char *value = NULL;
 
         ++Page;
@@ -652,31 +552,23 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
              * header!
              */
 
-            Setup();
-
             printf("%c%c%c%c%c%c%c%c", 'L', 'S', 'P', 'K', '\x1B', '$', '0',
                    'J');
-            pwrite_int_start_doc('\r'); // fprintf(fp, "%c%c%c%c@@@@0100", '\r',
-                                        // '\0', '\0', '\0');
+            pwrite_int_start_doc('\r');
 
             UTF16 buffer[64];
             memset(&buffer, 0, sizeof(buffer));
             UTF16 *pbuffer   = (UTF16 *)&buffer;
-            const UTF8 *parg = (UTF8 *)user; // argv[2];
+            const UTF8 *parg = (UTF8 *)user_name; // argv[2];
             ConversionResult res =
-                ConvertUTF8toUTF16(&parg, parg + strlen(user), &pbuffer,
+                ConvertUTF8toUTF16(&parg, parg + strlen(user_name), &pbuffer,
                                    pbuffer + sizeof(buffer), strictConversion);
-            // fprintf(stderr, "INFO: ConversionResult=%d\n", res);
-            // fprintf(stderr, "INFO: argv[2]=%s len=%d\n", argv[2],
-            // (int)strlen(argv[2])); char s_user[32]; strcpy((char *) &s_user,
-            // argv[2]); wchar_t w_user[16]; memset(&w_user, 0, sizeof(w_user));
-            // asciitounicode2((wchar_t *) &w_user, (char *) &s_user, 16);
             fwrite(&buffer, 2, 16, stdout);
 
             char buf_time[14];
             timestring((char *)&buf_time);
             fwrite(&buf_time, 1, sizeof(buf_time), stdout);
-            pwrite_short(0); // fprintf(fp, "%c%c", '\0', '\0');
+            pwrite_short(0);
 
             value = cupsGetOption("CaBrightness", num_options, options);
             if (value)
@@ -700,13 +592,6 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
                 pdfFlag = 1;
             fprintf(stderr, "INFO: pages=%d\n", pages);
             fprintf(stderr, "INFO: pdfFlag=%d\n", pdfFlag);
-
-            // value =
-            // cupsGetOption("com.apple.print.PrintSettings.PMCopies..n.",
-            // num_options,
-            //                       options);
-            // if (value)
-            //         v44 = atoi(value);
 
             /*
              * N-Up printing places multiple document pages on a single printed
@@ -736,23 +621,15 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
             fprintf(stderr, "INFO: PMLayoutRows=%d\n", nup_row);
             fprintf(stderr, "INFO: nup=%d\n", nup);
 
-            // char s_title[64];
-            // strcpy((char *) &s_title, argv[3]);
-            // uint16_t w_title[32];
-            // memset(&w_title, 0, sizeof(w_title));
-            // asciitounicode2((uint16_t *) &w_title, (char *) &s_title, 32);
             printf("\x1B$0D");
-            pwrite_int_start(16); // fprintf(fp, "%c%c%c%c@@@@", 16, 0, 0, 0);
+            pwrite_int_start(16);
 
             memset(&buffer, 0, sizeof(buffer));
             pbuffer = (UTF16 *)&buffer;
-            parg    = (UTF8 *)title;
-            // fprintf(stderr, "INFO: argv[3]=%s len=%d\n", argv[3],
-            // (int)strlen(argv[3]));
+            parg    = (UTF8 *)job_title;
             res =
-                ConvertUTF8toUTF16(&parg, parg + strlen(title), &pbuffer,
+                ConvertUTF8toUTF16(&parg, parg + strlen(job_title), &pbuffer,
                                    pbuffer + sizeof(buffer), lenientConversion);
-            // fprintf(stderr, "INFO: ConversionResult=%d\n", res);
             fwrite(&buffer, 2, 0x20, stdout);
 
             /*
@@ -761,25 +638,19 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
              */
 
             int collate = 0;
-            // int copies = atoi(argv[4]);
-            if (strstr(opts, " collate"))
+            if (strstr(printing_options, " collate"))
             {
-                collate = 1;
-                copies  = 1;
+                collate       = 1;
+                copies_number = 1;
             }
             printf("\x1B$0C");
-            pwrite_int_start(1); // fprintf(fp, "%c%c%c%c@@@@", 1, 0, 0, 0);
-            pwrite_short(
-                copies); // fprintf(fp, "%c%c", LOBYTE(i_arg4), HIBYTE(i_arg4));
-            pwrite_short(
-                collate); // fprintf(fp, "%c%c", LOBYTE(v35), HIBYTE(v35));
+            pwrite_int_start(1);
+            pwrite_short(copies_number);
+            pwrite_short(collate);
 
             printf("\x1B$0S");
-            pwrite_int_start(2); // fprintf(fp, "%c%c%c%c@@@@", 2, 0, 0, 0);
-            pwrite_short(
-                header.MediaPosition); // fprintf(fp, "%c%c",
-                                       // LOBYTE(header.MediaPosition),
-                                       // HIBYTE(header.MediaPosition));
+            pwrite_int_start(2);
+            pwrite_short(header.MediaPosition);
             int duplex = 0;
             if (header.Duplex)
                 duplex = header.Tumble + header.Duplex;
@@ -790,16 +661,13 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
                               num_options, options);
             if (value)
                 duplex = atoi(value) - 1;
-            pwrite_short(
-                duplex); // fprintf(fp, "%c%c", LOBYTE(v37), HIBYTE(v37));
+            pwrite_short(duplex);
             value       = cupsGetOption("Feeding", num_options, options);
             int feeding = value && !strcmp(value, "On");
-            pwrite_short(
-                feeding); // fprintf(fp, "%c%c", LOBYTE(v38), HIBYTE(v38));
+            pwrite_short(feeding);
             value = cupsGetOption("EngineSpeed", num_options, options);
             int engine_speed = value && !strcmp(value, "On");
-            pwrite_short(
-                engine_speed); // fprintf(fp, "%c%c", LOBYTE(v39), HIBYTE(v39));
+            pwrite_short(engine_speed);
 
             fprintf(stderr, "INFO: Duplex=%d\n", duplex);
             fprintf(stderr, "INFO: Feeding=%d\n", feeding);
@@ -808,21 +676,19 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
             int w_resolution = 600;
             int h_resolution = 600;
             printf("\x1B$0G");
-            pwrite_int_start(3); // fprintf(fp, "%c%c%c%c@@@@", 3, 0, 0, 0);
+            pwrite_int_start(3);
             value = cupsGetOption("Resolution", num_options, options);
             if (value && !strcmp(value, "300dpi"))
             {
                 h_resolution = 300;
                 w_resolution = 300;
             }
-            pwrite_short(
-                w_resolution); // fprintf(fp, "%c%c", LOBYTE(v40), HIBYTE(v40));
-            pwrite_short(
-                h_resolution); // fprintf(fp, "%c%c", LOBYTE(v41), HIBYTE(v41));
-            pwrite_short(1);   // fprintf(fp, "%c%c", LOBYTE(v42), HIBYTE(v42));
-            pwrite_short(1);   // fprintf(fp, "%c%c", LOBYTE(v43), HIBYTE(v43));
-            pwrite_short(32);  // fprintf(fp, "%c%c", ' ', 0);
-            pwrite_short(1 << 8); // fprintf(fp, "%c%c", 0, 1);
+            pwrite_short(w_resolution);
+            pwrite_short(h_resolution);
+            pwrite_short(1);
+            pwrite_short(1);
+            pwrite_short(32);
+            pwrite_short(1 << 8);
 
             paperSizeName = cupsGetOption("PageSize", num_options, options);
             if (!paperSizeName)
@@ -837,7 +703,7 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
         }
         if (Page > 1)
             // Not last page
-            EndPage(0);
+            end_page(0);
 
         header.cupsBitsPerColor = 1;
         header.cupsCompression  = 1;
@@ -847,7 +713,7 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
          * Start the page...
          */
 
-        StartPage(/*ppd,*/ &header);
+        start_page(/*ppd,*/ &header);
 
         // band = header.cupsHeight;
         numVer        = 256;
@@ -859,19 +725,6 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
 
         for (y = 0; y < header.cupsHeight; ++y)
         {
-            /*        v45 = cupsRasterReadPixels(ras, nextLines, iLineSize);
-                    insideBandCounter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31
-               >> 24); if (vertFlag && band - y <= 0xFF) vertFlag = 0;
-                    memcpy(Lines, nextLines, v45);
-                    if (!skipFlag)
-                            SendPlanesData(header.cupsCompression);
-                    v45 = cupsRasterReadPixels(ras, nextLines, iLineSize);
-                    if (!v45 && !cupsRasterReadHeader2(ras, &header)) {
-                            endOfDataFlag = 1;
-                            break;
-                    }
-                    */
-
             /*
              * Print progress...
              */
@@ -879,8 +732,8 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
             if ((y & 0x3FF) == 0)
             {
                 _cupsLangPrintFilter(stderr, "INFO",
-                                     _("Printing page %d, %u%% complete."),
-                                     Page, 100 * y / header.cupsHeight);
+                                     "Printing page %d, %u%% complete.", Page,
+                                     100 * y / header.cupsHeight);
                 fprintf(stderr, "ATTR: job-media-progress=%u\n",
                         100 * y / header.cupsHeight);
             }
@@ -889,16 +742,13 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
              * Read a line of graphics...
              */
 
-            if (cupsRasterReadPixels(ras, nextLines, header.cupsBytesPerLine) <
-                1)
+            if (cupsRasterReadPixels(raster_stream, nextLines,
+                                     header.cupsBytesPerLine) < 1)
                 break;
 
             insideBandCounter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);
             if (vertFlag && header.cupsHeight - y <= 0xFF)
                 vertFlag = 0;
-            // fprintf(stderr, "INFO: insideBandCounter=%d\n",
-            // insideBandCounter); fprintf(stderr, "INFO: vertFlag=%d\n",
-            // vertFlag);
 
             /*
              * Write it to the printer...
@@ -907,59 +757,20 @@ int rastertokpsl(cups_raster_t *ras, const char *user, const char *title,
             memcpy(Lines, nextLines, header.cupsBytesPerLine);
             SendPlanesData(&header);
         }
-
-        /*
-                        EndPage();
-                        if ((pdfFlag || Page % (signed int) floor(ceil(((float)
-           pages / (float) nup))))
-                            && (!pdfFlag || !endOfDataFlag)) {
-                                skipFlag = 0;
-                        }
-                        else if (skipFlag) {
-                                if (Page != 1 && endOfDataFlag) {
-                                        printf("\x1B$0E");
-                                        pwrite_int_start(0); //fprintf(fp,
-           "%c%c%c%c@@@@", 0, 0, 0, 0);
-                                }
-                                skipFlag = 0;
-                        }
-                        else {
-                                if (endOfDataFlag) {
-                                        printf("\x1B$0E");
-                                        pwrite_int_start(0); //fprintf(fp,
-           "%c%c%c%c@@@@", 0, 0, 0, 0);
-                                }
-                                if (Page != 1) {
-                                        if (v37) {
-                                                if (nup == 0) {
-                                                        v9 = 0;
-                                                } else {
-                                                        v9 = (signed int)
-           floor(ceil(((float) pages / (float) nup)));
-                                                }
-                                                if ((((char) v9 + (v9 >> 31)) &
-           1) - (v9 >> 31) == 1) { skipFlag = 1;
-                                                        --Page;
-                                                }
-                                        }
-                                }
-                        }
-                        */
     }
-    // while (!endOfDataFlag);
 
     // last page end
-    EndPage(1);
+    end_page(1);
 
     printf("\x1B$0E");
-    pwrite_int_start(0); // fprintf(fp, "%c%c%c%c@@@@", 0, 0, 0, 0);
+    pwrite_int_start(0);
 
     /*
      * Shutdown the printer...
      */
 
     printf("\x1B$0T");
-    pwrite_int_start(0); // printf("%c%c%c%c@@@@", 0, 0, 0, 0);
+    pwrite_int_start(0);
 
     return Page;
 }

@@ -1,6 +1,5 @@
 #include "halfton.h"
 #include "string.h"
-#include <stdio.h>
 
 /*
  * Globals...
@@ -17,35 +16,8 @@ unsigned m_DitherTableW;
 unsigned m_DitherTableH;
 int m_DitherTablePitch;
 
-/*
-static char DeviceBestDither[256] = {
-        145, 185, 177, 137, 107, 67, 75, 115, 147, 187, 179,
-        139, 105, 65, 73, 113, 193, 241, 233, 161, 59, 11, 19,
-        91, 195, 243, 235, 163, 57, 9, 17, 89, 201, 249, 225,
-        169, 51, 3, 27, 83, 203, 251, 227, 171, 49, 1, 25, 81,
-        153, 217, 209, 129, 99, 35, 43, 123, 155, 219, 211,
-        131, 97, 33, 41, 121, 108, 68, 76, 116, 148, 188, 180,
-        140, 110, 70, 78, 118, 150, 190, 182, 142, 60, 12, 20,
-        92, 196, 244, 236, 164, 62, 14, 22, 94, 198, 246, 238,
-        166, 52, 4, 28, 84, 204, 252, 228, 172, 54, 6, 30, 86,
-        206, 254, 230, 174, 100, 36, 44, 124, 156, 220, 212,
-        132, 102, 38, 46, 126, 158, 222, 214, 134, 146, 186,
-        178, 138, 104, 64, 72, 112, 144, 184, 176, 136, 106,
-        66, 74, 114, 194, 242, 234, 162, 56, 8, 16, 88, 192,
-        240, 232, 160, 58, 10, 18, 90, 202, 250, 226, 170, 48,
-        0, 24, 80, 200, 248, 224, 168, 50, 2, 26, 82, 154, 218,
-        210, 130, 96, 32, 40, 120, 152, 216, 208, 128, 98, 34,
-        42, 122, 111, 71, 79, 119, 151, 191, 183, 143, 109,
-        69, 77, 117, 149, 189, 181, 141, 63, 15, 23, 95, 199,
-        247, 239, 167, 61, 13, 21, 93, 197, 245, 237, 165, 55,
-        7, 31, 87, 207, 254, 231, 175, 53, 5, 29, 85, 205, 253,
-        229, 173, 103, 39, 47, 127, 159, 223, 215, 135, 101,
-        37, 45, 125, 157, 221, 213, 133
-};*/
-
 unsigned char Transfer2(unsigned char value, int contrast, int brightness)
 {
-
     if (contrast)
     {
         m_fContrast = contrast * 0.000024999999F * contrast +
@@ -72,7 +44,7 @@ unsigned char Transfer2(unsigned char value, int contrast, int brightness)
     return value;
 }
 
-static unsigned char DeviceBestDither[256] = {
+static unsigned char device_best_dither[256] = {
     0x91, 0xB9, 0xB1, 0x89, 0x6B, 0x43, 0x4B, 0x73, 0x93, 0xBB, 0xB3, 0x8B,
     0x69, 0x41, 0x49, 0x71, 0xC1, 0xF1, 0xE9, 0xA1, 0x3B, 0x0B, 0x13, 0x5B,
     0xC3, 0xF3, 0xEB, 0xA3, 0x39, 0x09, 0x11, 0x59, 0xC9, 0xF9, 0xE1, 0xA9,
@@ -96,9 +68,9 @@ static unsigned char DeviceBestDither[256] = {
     0x67, 0x27, 0x2F, 0x7F, 0x9F, 0xDF, 0xD7, 0x87, 0x65, 0x25, 0x2D, 0x7D,
     0x9D, 0xDD, 0xD5, 0x85};
 
-void SetDitherGrayTable(signed char *table, unsigned width, unsigned height)
+void set_dither_gray_table(signed char *table, unsigned width, unsigned height)
 {
-    int v7; // [sp+Ch] [bp-34h]@4
+    int v7;
 
     if (m_pDitherTable)
         free(m_pDitherTable);
@@ -118,61 +90,38 @@ void SetDitherGrayTable(signed char *table, unsigned width, unsigned height)
             m_pDitherTable[k + j * m_DitherTablePitch] =
                 (unsigned char)(-1 -
                                 table[j * m_DitherTableW + k % m_DitherTableW]);
-        //                        *(k + j * m_DitherTablePitch + m_pDitherTable)
-        //                        =
-        //                                (char)(-1 - *(table + j *
-        //                                m_DitherTableW + k % m_DitherTableW));
     }
 }
 
-void SetDefaultScreen()
+void set_default_screen()
 {
-    SetDitherGrayTable((signed char *)&DeviceBestDither, 16, 16);
+    set_dither_gray_table((signed char *)&device_best_dither, 16, 16);
 }
 
-int GetLineBytes(int width, int mult)
+int get_line_bytes(int width, int mult)
 {
     return ((mult * width + 31) & 0xFFFFFFE0) >> 3;
 }
 
-// void HalftoneDibToDib(unsigned char*, unsigned char*, unsigned, unsigned,
-// unsigned, unsigned);
-
-void HalftoneDibToDib(unsigned char *planes8, unsigned char *planes, int width,
+void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes, int width,
                       int numver, int contrast, int brightness)
 {
-    int v7;                           // eax@7
-    int v8;                           // eax@7
-    unsigned char transferTable[256]; // [sp+10h] [bp-138h]@4
-    int v12;                          // [sp+114h] [bp-34h]@6
-    unsigned int v13;                 // [sp+118h] [bp-30h]@6
-    unsigned char *v17;               // [sp+128h] [bp-20h]@7
-    unsigned char *v18;               // [sp+12Ch] [bp-1Ch]@7
-    unsigned char v21;                // [sp+138h] [bp-10h]@11
+    int v7;
+    int v8;
+    unsigned char transferTable[256];
+    int v12;
+    unsigned int v13;
+    unsigned char *v17;
+    unsigned char *v18;
+    unsigned char v21;
 
     if (!m_pDitherTable)
-        SetDefaultScreen();
+        set_default_screen();
 
     for (int i = 0; i < 256; i++)
     {
         transferTable[i] = Transfer2((unsigned char)i, contrast, brightness);
     }
-
-    /*
-    fprintf(stderr, "contrast=%d brightness=%d\n", contrast, brightness);
-    fprintf(stderr, "DeviceBestDither\n");
-    for (int i = 0; i < 16; i++) {
-            for (int j = 0; j < 16; j++)
-                    fprintf(stderr, "0x%02X, ", DeviceBestDither[i*16 + j]);
-            fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "m_pDitherTable\n");
-    for (int i = 0; i < 16; i++) {
-            for (int j = 0; j < 16; j++)
-                    fprintf(stderr, "0x%02X, ", m_pDitherTable[i*16 + j]);
-            fprintf(stderr, "\n");
-    }
-    */
 
     v12 = width / 8;
     v13 = (((char)width + ((unsigned int)(width >> 31) >> 29)) & 7) -
@@ -182,9 +131,9 @@ void HalftoneDibToDib(unsigned char *planes8, unsigned char *planes, int width,
     {
         unsigned char *v16 =
             &m_pDitherTable[j % m_DitherTableH * m_DitherTablePitch];
-        v7      = GetLineBytes(width, 8);
+        v7      = get_line_bytes(width, 8);
         v17     = &planes8[j * v7];
-        v8      = GetLineBytes(width, 1);
+        v8      = get_line_bytes(width, 1);
         v18     = &planes[j * v8];
         int v19 = 0;
         for (int k = 0; k < v12; k++)

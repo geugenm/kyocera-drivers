@@ -28,7 +28,7 @@ static unsigned char DitherTableExpected[256] = {
 };
 
 char * test_setDefaultScreen() {
-        SetDefaultScreen();
+    set_default_screen();
         int res = memcmp(m_pDitherTable, &DitherTableExpected, 256);
         mu_assert("error, setDefaultScreen()", res == 0);
         return 0;
