@@ -1,9 +1,9 @@
-#include <cups/cups.h>
-#include <cups/raster.h>
-
 #include <fcntl.h>
 #include <math.h>
 #include <signal.h>
+
+#include <cups/cups.h>
+#include <cups/raster.h>
 
 #include <ConvertUTF.h>
 #include <jbig.h>
@@ -26,43 +26,40 @@
 #define pwrite_int_start(n) pwrite_int_f((FORMAT_INT_START), (n))
 #define pwrite_int_start_doc(n) pwrite_int_f((FORMAT_INT_START_DOC), (n))
 
-int vertFlag;
-int endOfDataFlag;
+int vert_flag;
 int light[2];
 
-unsigned Page;
+unsigned current_page;
 int pages;
-int pdfFlag;
+int pdf_flag;
 cups_orient_t Orientation;
-const char *paperSizeName;
+const char *paper_size_name;
 
 int nup;
 
-unsigned numVer;
-unsigned numVertPacked;
+unsigned num_ver;
+unsigned num_vert_packed;
 
-unsigned char *nextLines;
-unsigned iLineSize;
+unsigned char *next_lines;
 unsigned char *Lines;
 
-// int skipFlag;
-int insideBandCounter;
+int inside_band_counter;
 
 // StartPage
-unsigned WidthInBytes;
-unsigned iRealPlaneSize;
-unsigned iPlaneSize;
-unsigned iPlaneSize8;
+unsigned width_in_bytes;
+unsigned i_real_plane_size;
+unsigned i_plane_size;
+unsigned i_plane_size_8;
 
 // buffers
-unsigned char *Planes;
-unsigned char *Planes8;
-unsigned char *OutBuffer;
+unsigned char *planes;
+unsigned char *planes_8;
+unsigned char *out_buffer;
 
 // SendPlanesData
 unsigned y; /* Current line */
-unsigned fWriteJBigHeader;
-unsigned compressedLength;
+unsigned f_write_j_big_header;
+unsigned compressed_length;
 
 void start_page(cups_page_header2_t *page_header)
 {
@@ -89,101 +86,101 @@ void start_page(cups_page_header2_t *page_header)
             orientation2 = 0;
             break;
     }
-    if (paperSizeName)
+    if (paper_size_name)
     {
-        if (!strcmp(paperSizeName, "EnvMonarch"))
+        if (!strcmp(paper_size_name, "EnvMonarch"))
         {
             pageSizeEnum = 1;
         }
-        else if (!strcmp(paperSizeName, "Env10"))
+        else if (!strcmp(paper_size_name, "Env10"))
         {
             pageSizeEnum = 2;
         }
-        else if (!strcmp(paperSizeName, "EnvDL"))
+        else if (!strcmp(paper_size_name, "EnvDL"))
         {
             pageSizeEnum = 3;
         }
-        else if (!strcmp(paperSizeName, "EnvC5"))
+        else if (!strcmp(paper_size_name, "EnvC5"))
         {
             pageSizeEnum = 4;
         }
-        else if (!strcmp(paperSizeName, "Executive"))
+        else if (!strcmp(paper_size_name, "Executive"))
         {
             pageSizeEnum = 5;
         }
-        else if (!strcmp(paperSizeName, "Letter"))
+        else if (!strcmp(paper_size_name, "Letter"))
         {
             pageSizeEnum = 6;
         }
-        else if (!strcmp(paperSizeName, "Legal"))
+        else if (!strcmp(paper_size_name, "Legal"))
         {
             pageSizeEnum = 7;
         }
-        else if (!strcmp(paperSizeName, "A4"))
+        else if (!strcmp(paper_size_name, "A4"))
         {
             pageSizeEnum = 8;
         }
-        else if (!strcmp(paperSizeName, "B5"))
+        else if (!strcmp(paper_size_name, "B5"))
         {
             pageSizeEnum = 9;
         }
-        else if (!strcmp(paperSizeName, "A3"))
+        else if (!strcmp(paper_size_name, "A3"))
         {
             pageSizeEnum = 10;
         }
-        else if (!strcmp(paperSizeName, "B4"))
+        else if (!strcmp(paper_size_name, "B4"))
         {
             pageSizeEnum = 11;
         }
-        else if (!strcmp(paperSizeName, "Tabloid"))
+        else if (!strcmp(paper_size_name, "Tabloid"))
         {
             pageSizeEnum = 12;
         }
-        else if (!strcmp(paperSizeName, "A5"))
+        else if (!strcmp(paper_size_name, "A5"))
         {
             pageSizeEnum = 13;
         }
-        else if (!strcmp(paperSizeName, "A6"))
+        else if (!strcmp(paper_size_name, "A6"))
         {
             pageSizeEnum = 14;
         }
-        else if (!strcmp(paperSizeName, "B6"))
+        else if (!strcmp(paper_size_name, "B6"))
         {
             pageSizeEnum = 15;
         }
-        else if (!strcmp(paperSizeName, "Env9"))
+        else if (!strcmp(paper_size_name, "Env9"))
         {
             pageSizeEnum = 16;
         }
-        else if (!strcmp(paperSizeName, "EnvPersonal"))
+        else if (!strcmp(paper_size_name, "EnvPersonal"))
         {
             pageSizeEnum = 17;
         }
-        else if (!strcmp(paperSizeName, "ISOB5"))
+        else if (!strcmp(paper_size_name, "ISOB5"))
         {
             pageSizeEnum = 18;
         }
-        else if (!strcmp(paperSizeName, "EnvC4"))
+        else if (!strcmp(paper_size_name, "EnvC4"))
         {
             pageSizeEnum = 30;
         }
-        else if (!strcmp(paperSizeName, "OficioII"))
+        else if (!strcmp(paper_size_name, "OficioII"))
         {
             pageSizeEnum = 33;
         }
-        else if (!strcmp(paperSizeName, "P16K"))
+        else if (!strcmp(paper_size_name, "P16K"))
         {
             pageSizeEnum = 40;
         }
-        else if (!strcmp(paperSizeName, "Statement"))
+        else if (!strcmp(paper_size_name, "Statement"))
         {
             pageSizeEnum = 50;
         }
-        else if (!strcmp(paperSizeName, "Folio"))
+        else if (!strcmp(paper_size_name, "Folio"))
         {
             pageSizeEnum = 51;
         }
-        else if (!strcmp(paperSizeName, "OficioMX"))
+        else if (!strcmp(paper_size_name, "OficioMX"))
         {
             pageSizeEnum = 42;
         }
@@ -192,33 +189,34 @@ void start_page(cups_page_header2_t *page_header)
             pageSizeEnum = 19;
         }
     }
-    WidthInBytes = (unsigned)floor(
+    width_in_bytes = (unsigned)floor(
         32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0));
-    iRealPlaneSize = WidthInBytes << 8;
-    iPlaneSize     = iRealPlaneSize;
-    iPlaneSize8    = iPlaneSize * 8;
+    i_real_plane_size = width_in_bytes << 8;
+    i_plane_size      = i_real_plane_size;
+    i_plane_size_8    = i_plane_size * 8;
     fprintf(stderr, "INFO: start_page()\n");
     fprintf(stderr, "INFO: cupsHeight=%d(0x%X)\n", page_header->cupsHeight,
             page_header->cupsHeight);
     fprintf(stderr, "INFO: cupsWidth=%d(0x%X) 0x%X\n", page_header->cupsWidth,
             page_header->cupsWidth, page_header->cupsWidth >> 3);
-    fprintf(stderr, "INFO: WidthInBytes=%d(0x%X)\n", WidthInBytes,
-            WidthInBytes);
-    fprintf(stderr, "INFO: iRealPlaneSize=%d(0x%X)\n", iRealPlaneSize,
-            iRealPlaneSize);
-    fprintf(stderr, "INFO: iPlaneSize=%d(0x%X)\n", iPlaneSize, iPlaneSize);
-    fprintf(stderr, "INFO: iPlaneSize8=%d(0x%X)\n", iPlaneSize8, iPlaneSize8);
+    fprintf(stderr, "INFO: width_in_bytes=%d(0x%X)\n", width_in_bytes,
+            width_in_bytes);
+    fprintf(stderr, "INFO: i_real_plane_size=%d(0x%X)\n", i_real_plane_size,
+            i_real_plane_size);
+    fprintf(stderr, "INFO: i_plane_size=%d(0x%X)\n", i_plane_size, i_plane_size);
+    fprintf(stderr, "INFO: i_plane_size_8=%d(0x%X)\n", i_plane_size_8,
+            i_plane_size_8);
 
-    Planes = (unsigned char *)malloc(iPlaneSize);
-    memset(Planes, 0, iPlaneSize);
-    Planes8 = (unsigned char *)malloc(iPlaneSize8);
-    memset(Planes8, 0, iPlaneSize8);
-    Lines = (unsigned char *)malloc(8 * WidthInBytes);
-    memset(Lines, 0, 8 * WidthInBytes);
-    nextLines = (unsigned char *)malloc(8 * WidthInBytes);
-    memset(nextLines, 0, 8 * WidthInBytes);
-    OutBuffer = (unsigned char *)malloc(0x100000);
-    memset(OutBuffer, 0, 0x100000);
+    planes = (unsigned char *)malloc(i_plane_size);
+    memset(planes, 0, i_plane_size);
+    planes_8 = (unsigned char *)malloc(i_plane_size_8);
+    memset(planes_8, 0, i_plane_size_8);
+    Lines = (unsigned char *)malloc(8 * width_in_bytes);
+    memset(Lines, 0, 8 * width_in_bytes);
+    next_lines = (unsigned char *)malloc(8 * width_in_bytes);
+    memset(next_lines, 0, 8 * width_in_bytes);
+    out_buffer = (unsigned char *)malloc(0x100000);
+    memset(out_buffer, 0, 0x100000);
     printf("\x1B$0P");
     pwrite_int_start(3);
     pwrite_short(orientation1);
@@ -243,13 +241,13 @@ void end_page(int section_end)
     fprintf(stderr, "INFO: sectionEndFlag=%d\n", section_end);
     pwrite_int(section_end);
     fflush(stdout);
-    free(Planes);
-    free(Planes8);
+    free(planes);
+    free(planes_8);
     free(Lines);
-    free(nextLines);
-    if (OutBuffer != 0)
+    free(next_lines);
+    if (out_buffer != 0)
     {
-        free(OutBuffer);
+        free(out_buffer);
     }
 }
 
@@ -271,21 +269,21 @@ void cancel_job(int signal)
 
 void OutputBie(unsigned char *start, size_t len, void *file)
 {
-    if (fWriteJBigHeader && len == 20)
+    if (f_write_j_big_header && len == 20)
     {
-        fWriteJBigHeader = 0;
+        f_write_j_big_header = 0;
     }
     else
     {
         size_t v3          = len;
-        unsigned char *out = OutBuffer + compressedLength;
+        unsigned char *out = out_buffer + compressed_length;
         unsigned char *in  = start;
         while (v3)
         {
             *out++ = *in++;
             --v3;
         }
-        compressedLength += len;
+        compressed_length += len;
     }
 }
 
@@ -296,107 +294,108 @@ void SendPlanesData(cups_page_header2_t *header)
 
     if (header->cupsCompression)
     {
-        memcpy(Planes8 + 8 * WidthInBytes * insideBandCounter, Lines,
-               8 * WidthInBytes);
+        memcpy(planes_8 + 8 * width_in_bytes * inside_band_counter, Lines,
+               8 * width_in_bytes);
 
-        if ((y && insideBandCounter == 255) || (header->cupsHeight - 1 == y))
+        if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
         {
-            if (y && insideBandCounter == 255)
+            if (y && inside_band_counter == 255)
             {
-                halftone_dib_to_dib(Planes8, Planes, 8 * WidthInBytes, 256,
+                halftone_dib_to_dib(planes_8, planes, 8 * width_in_bytes, 256,
                                     light[1], light[0]);
             }
             else if (header->cupsHeight - 1 == y)
             {
-                halftone_dib_to_dib(Planes8, Planes, 8 * WidthInBytes, numVer,
+                halftone_dib_to_dib(planes_8, planes, 8 * width_in_bytes,
+                                    num_ver,
                                     light[1], light[0]);
             }
-            fWriteJBigHeader = 1;
-            compressedLength = 0;
+            f_write_j_big_header = 1;
+            compressed_length    = 0;
             struct jbg_enc_state encState;
-            jbg_enc_init(&encState, 8 * WidthInBytes, numVer, 1, &Planes,
+            jbg_enc_init(&encState, 8 * width_in_bytes, num_ver, 1, &planes,
                          OutputBie, stdout);
             jbg_enc_layers(&encState, 0);
             jbg_enc_options(&encState, 0, 0, 256, 0, 0);
             jbg_enc_out(&encState);
             jbg_enc_free(&encState);
-            v26 = 32 * (signed int)floor((compressedLength + 31) / 32.0);
-            if (iPlaneSize >= v26)
+            v26 = 32 * (signed int)floor((compressed_length + 31) / 32.0);
+            if (i_plane_size >= v26)
             {
                 printf("\x1B$0B");
                 pwrite_int_start(v26 / 4 + 13);
                 pwrite_int(1 << 16);
                 pwrite_int(header->cupsWidth);
-                pwrite_int(WidthInBytes);
-                pwrite_int(numVer);
-                pwrite_int(numVertPacked);
+                pwrite_int(width_in_bytes);
+                pwrite_int(num_ver);
+                pwrite_int(num_vert_packed);
                 pwrite_int(1 << 8);
                 pwrite_int(0);
-                pwrite_int(compressedLength);
+                pwrite_int(compressed_length);
                 pwrite_int(v26);
                 pwrite_int(0);
                 pwrite_int(y - 255);
                 pwrite_int(0);
                 pwrite_int(1);
-                if (compressedLength & 0x1F)
-                    v27 = 32 - (((LOBYTE(compressedLength) +
-                                  ((compressedLength >> 31) >> 27)) &
+                if (compressed_length & 0x1F)
+                    v27 = 32 - (((LOBYTE(compressed_length) +
+                                  ((compressed_length >> 31) >> 27)) &
                                  0x1F) -
-                                ((compressedLength >> 31) >> 27));
+                                ((compressed_length >> 31) >> 27));
                 else
                     v27 = 0;
-                memset(OutBuffer + compressedLength, 0, v27);
-                fwrite(OutBuffer, 1, v27 + compressedLength, stdout);
-                memset(OutBuffer, 0, 0x100000);
-                memset(Planes, 0, numVer * WidthInBytes);
-                memset(Planes8, 0, 8 * numVer * WidthInBytes);
-                if (!vertFlag)
+                memset(out_buffer + compressed_length, 0, v27);
+                fwrite(out_buffer, 1, v27 + compressed_length, stdout);
+                memset(out_buffer, 0, 0x100000);
+                memset(planes, 0, num_ver * width_in_bytes);
+                memset(planes_8, 0, 8 * num_ver * width_in_bytes);
+                if (!vert_flag)
                 {
-                    numVer = LOBYTE(header->cupsHeight +
+                    num_ver = LOBYTE(header->cupsHeight +
                                     (header->cupsHeight >> 31 >> 24)) -
                              (header->cupsHeight >> 31 >> 24);
-                    numVertPacked  = 256;
-                    iRealPlaneSize = numVer * WidthInBytes;
-                    iPlaneSize     = numVer * WidthInBytes;
-                    iPlaneSize8    = 8 * numVer * WidthInBytes;
+                    num_vert_packed   = 256;
+                    i_real_plane_size = num_ver * width_in_bytes;
+                    i_plane_size      = num_ver * width_in_bytes;
+                    i_plane_size_8    = 8 * num_ver * width_in_bytes;
                 }
             }
             else
             {
                 printf("\x1B$0R");
-                pwrite_int_start(iPlaneSize / 4 + 10);
+                pwrite_int_start(i_plane_size / 4 + 10);
                 pwrite_int(header->cupsWidth);
-                pwrite_int(WidthInBytes);
-                pwrite_int(numVer);
-                pwrite_int(numVertPacked);
-                pwrite_int(iRealPlaneSize);
-                pwrite_int(iPlaneSize);
+                pwrite_int(width_in_bytes);
+                pwrite_int(num_ver);
+                pwrite_int(num_vert_packed);
+                pwrite_int(i_real_plane_size);
+                pwrite_int(i_plane_size);
                 pwrite_int(0);
                 pwrite_int(y - 255);
                 pwrite_int(0);
                 pwrite_int(1);
-                if (y && insideBandCounter == 255)
+                if (y && inside_band_counter == 255)
                 {
-                    fwrite(Planes, 1, WidthInBytes << 8, stdout);
-                    memset(Planes, 0, WidthInBytes << 8);
-                    if (!vertFlag)
+                    fwrite(planes, 1, width_in_bytes << 8, stdout);
+                    memset(planes, 0, width_in_bytes << 8);
+                    if (!vert_flag)
                     {
-                        numVer = LOBYTE(header->cupsHeight +
+                        num_ver = LOBYTE(header->cupsHeight +
                                         (header->cupsHeight >> 31 >> 24)) -
                                  (header->cupsHeight >> 31 >> 24);
-                        numVertPacked  = 256;
-                        iRealPlaneSize = numVer * WidthInBytes;
-                        iPlaneSize     = numVer * WidthInBytes;
-                        iPlaneSize8    = 8 * numVer * WidthInBytes;
+                        num_vert_packed   = 256;
+                        i_real_plane_size = num_ver * width_in_bytes;
+                        i_plane_size      = num_ver * width_in_bytes;
+                        i_plane_size_8    = 8 * num_ver * width_in_bytes;
                     }
                 }
                 else
                 {
                     if (header->cupsHeight - 1 == y)
                     {
-                        fwrite(Planes, 1, numVer * WidthInBytes, stdout);
-                        memset(Planes, 0, numVer * WidthInBytes);
-                        insideBandCounter = -1;
+                        fwrite(planes, 1, num_ver * width_in_bytes, stdout);
+                        memset(planes, 0, num_ver * width_in_bytes);
+                        inside_band_counter = -1;
                     }
                 }
             }
@@ -404,46 +403,45 @@ void SendPlanesData(cups_page_header2_t *header)
     }
     else
     {
-        if ((y && insideBandCounter == 255) || (header->cupsHeight - 1 == y))
+        if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
         {
             printf("\x1B$0R");
-            pwrite_int_start(iPlaneSize / 4 + 10);
+            pwrite_int_start(i_plane_size / 4 + 10);
 
             pwrite_int(header->cupsWidth);
-            pwrite_int(WidthInBytes);
-            pwrite_int(numVer);
-            pwrite_int(numVertPacked);
-            pwrite_int(iRealPlaneSize);
-            pwrite_int(iPlaneSize);
+            pwrite_int(width_in_bytes);
+            pwrite_int(num_ver);
+            pwrite_int(num_vert_packed);
+            pwrite_int(i_real_plane_size);
+            pwrite_int(i_plane_size);
             pwrite_int(0);
             pwrite_int(y - 255);
             pwrite_int(0);
             pwrite_int(1);
         }
-        memcpy(Planes + (numVer - insideBandCounter - 1) * WidthInBytes, Lines,
-               WidthInBytes);
-        if (y && insideBandCounter == 255)
+        memcpy(planes + (num_ver - inside_band_counter - 1) * width_in_bytes, Lines, width_in_bytes);
+        if (y && inside_band_counter == 255)
         {
-            fwrite(Planes, 1, WidthInBytes << 8, stdout);
-            memset(Planes, 0, WidthInBytes << 8);
-            if (!vertFlag)
+            fwrite(planes, 1, width_in_bytes << 8, stdout);
+            memset(planes, 0, width_in_bytes << 8);
+            if (!vert_flag)
             {
-                numVer = LOBYTE(header->cupsHeight +
+                num_ver = LOBYTE(header->cupsHeight +
                                 (header->cupsHeight >> 31 >> 24)) -
                          (header->cupsHeight >> 31 >> 24);
-                numVertPacked  = 256;
-                iRealPlaneSize = numVer * WidthInBytes;
-                iPlaneSize     = numVer * WidthInBytes;
-                iPlaneSize8    = 8 * numVer * WidthInBytes;
+                num_vert_packed   = 256;
+                i_real_plane_size = num_ver * width_in_bytes;
+                i_plane_size      = num_ver * width_in_bytes;
+                i_plane_size_8    = 8 * num_ver * width_in_bytes;
             }
         }
         else
         {
             if (header->cupsHeight - 1 == y)
             {
-                fwrite(Planes, 1, numVer * WidthInBytes, stdout);
-                memset(Planes, 0, numVer * WidthInBytes);
-                insideBandCounter = -1;
+                fwrite(planes, 1, num_ver * width_in_bytes, stdout);
+                memset(planes, 0, num_ver * width_in_bytes);
+                inside_band_counter = -1;
             }
         }
     }
@@ -472,20 +470,19 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
 
     setbuf(stderr, 0);
 
-    int num_options        = 0;
     cups_option_t *options = NULL;
-    num_options            = cupsParseOptions(printing_options, 0, &options);
+    int num_options            = cupsParseOptions(printing_options, 0, &options);
 
-    Page = 0;
+    current_page = 0;
 
     while (cupsRasterReadHeader2(raster_stream, &header))
     {
         const char *value = NULL;
 
-        ++Page;
+        ++current_page;
 
-        vertFlag = 1;
-        if (Page == 1)
+        vert_flag = 1;
+        if (current_page == 1)
         {
 
             /*
@@ -530,9 +527,9 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             if (value)
                 pages = atoi(value);
             else
-                pdfFlag = 1;
+                pdf_flag = 1;
             fprintf(stderr, "INFO: pages=%d\n", pages);
-            fprintf(stderr, "INFO: pdfFlag=%d\n", pdfFlag);
+            fprintf(stderr, "INFO: pdf_flag=%d\n", pdf_flag);
 
             /*
              * N-Up printing places multiple document pages on a single printed
@@ -631,9 +628,9 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             pwrite_short(32);
             pwrite_short(1 << 8);
 
-            paperSizeName = cupsGetOption("PageSize", num_options, options);
-            if (!paperSizeName)
-                paperSizeName = cupsGetOption("media", num_options, options);
+            paper_size_name = cupsGetOption("PageSize", num_options, options);
+            if (!paper_size_name)
+                paper_size_name = cupsGetOption("media", num_options, options);
 
             value =
                 cupsGetOption("orientation-requested", num_options, options);
@@ -642,7 +639,7 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             else
                 Orientation = (cups_orient_t)0;
         }
-        if (Page > 1)
+        if (current_page > 1)
             // Not last page
             end_page(0);
 
@@ -657,8 +654,8 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
         start_page(/*ppd,*/ &header);
 
         // band = header.cupsHeight;
-        numVer        = 256;
-        numVertPacked = 256;
+        num_ver       = 256;
+        num_vert_packed = 256;
 
         /*
          * Loop for each line on the page...
@@ -673,7 +670,8 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             if ((y & 0x3FF) == 0)
             {
                 _cupsLangPrintFilter(stderr, "INFO",
-                                     "Printing page %d, %u%% complete.", Page,
+                                     "Printing page %d, %u%% complete.",
+                                     current_page,
                                      100 * y / header.cupsHeight);
                 fprintf(stderr, "ATTR: job-media-progress=%u\n",
                         100 * y / header.cupsHeight);
@@ -683,19 +681,19 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
              * Read a line of graphics...
              */
 
-            if (cupsRasterReadPixels(raster_stream, nextLines,
+            if (cupsRasterReadPixels(raster_stream, next_lines,
                                      header.cupsBytesPerLine) < 1)
                 break;
 
-            insideBandCounter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);
-            if (vertFlag && header.cupsHeight - y <= 0xFF)
-                vertFlag = 0;
+            inside_band_counter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);
+            if (vert_flag && header.cupsHeight - y <= 0xFF)
+                vert_flag = 0;
 
             /*
              * Write it to the printer...
              */
 
-            memcpy(Lines, nextLines, header.cupsBytesPerLine);
+            memcpy(Lines, next_lines, header.cupsBytesPerLine);
             SendPlanesData(&header);
         }
     }
@@ -713,5 +711,5 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
     printf("\x1B$0T");
     pwrite_int_start(0);
 
-    return Page;
+    return current_page;
 }

@@ -9,7 +9,6 @@ unsigned dither_table_width;
 unsigned dither_table_height;
 int dither_table_pitch;
 
-
 unsigned char apply_transfer_function(unsigned char value, int contrast,
                                       int brightness)
 {
@@ -90,28 +89,46 @@ static unsigned char device_best_dither[256] = {
     0x67, 0x27, 0x2F, 0x7F, 0x9F, 0xDF, 0xD7, 0x87, 0x65, 0x25, 0x2D, 0x7D,
     0x9D, 0xDD, 0xD5, 0x85};
 
-void set_dither_gray_table(signed char *table, unsigned width, unsigned height)
+void set_dither_gray_table(signed char *input_table, unsigned width, unsigned height)
 {
-    int v7;
+    free(dither_table);
 
-    if (dither_table)
-        free(dither_table);
     dither_table_width  = width;
     dither_table_height = height;
+
+    int v7;
+
     if (width & 7)
-        v7 = 7;
-    else
-        v7 = 0;
-    dither_table_pitch = dither_table_width + v7;
-    size_t s           = (dither_table_width + v7) * dither_table_height;
-    dither_table       = malloc(s);
-    memset(dither_table, 0, s);
-    for (int j = 0; j < dither_table_height; ++j)
     {
-        for (int k = 0; k < dither_table_pitch; ++k)
-            dither_table[k + j * dither_table_pitch] =
-                (unsigned char)(-1 - table[j * dither_table_width +
-                                           k % dither_table_width]);
+        v7 = 7;
+    }
+    else
+    {
+        v7 = 0;
+    }
+
+    dither_table_pitch = dither_table_width + v7;
+    size_t table_size  = (dither_table_width + v7) * dither_table_height;
+    dither_table       = malloc(table_size);
+    memset(dither_table, 0, table_size);
+    if (!dither_table) {
+        // todo: handle memory allocation failure
+        return;
+    }
+
+    // Populate the dither table with transformed input values
+    for (unsigned row = 0; row < dither_table_height; ++row) {
+        for (int col = 0; col < dither_table_pitch; ++col) {
+            // Calculate the index for the flattened array
+            const int dest_index = col + row * dither_table_pitch;
+
+            // Wrap the column index for values that extend beyond input width
+            const int source_col = col % dither_table_width;
+
+            // Apply the transformation (using your original logic)
+            dither_table[dest_index] =
+                (unsigned char)(-1 - input_table[row * dither_table_width + source_col]);
+        }
     }
 }
 
