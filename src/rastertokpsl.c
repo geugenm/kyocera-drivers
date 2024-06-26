@@ -26,10 +26,6 @@
 #define pwrite_int_start(n) pwrite_int_f((FORMAT_INT_START), (n))
 #define pwrite_int_start_doc(n) pwrite_int_f((FORMAT_INT_START_DOC), (n))
 
-/*
- * Globals...
- */
-
 int vertFlag;
 int endOfDataFlag;
 int light[2];
@@ -223,7 +219,6 @@ void start_page(cups_page_header2_t *page_header)
     memset(nextLines, 0, 8 * WidthInBytes);
     OutBuffer = (unsigned char *)malloc(0x100000);
     memset(OutBuffer, 0, 0x100000);
-    // if (!skipFlag) {
     printf("\x1B$0P");
     pwrite_int_start(3);
     pwrite_short(orientation1);
@@ -266,7 +261,9 @@ void shutdown_printer()
 void cancel_job(int signal)
 {
     for (int i = 0; i <= 599; ++i)
+    {
         putchar(0);
+    }
     end_page(1);
     shutdown_printer();
     exit(0);
@@ -294,8 +291,8 @@ void OutputBie(unsigned char *start, size_t len, void *file)
 
 void SendPlanesData(cups_page_header2_t *header)
 {
-    int v26;          // [sp+ECh] [bp-24h]@13
-    unsigned int v27; // [sp+F0h] [bp-20h]@27
+    int v26;
+    unsigned int v27;
 
     if (header->cupsCompression)
     {
@@ -327,48 +324,20 @@ void SendPlanesData(cups_page_header2_t *header)
             if (iPlaneSize >= v26)
             {
                 printf("\x1B$0B");
-                pwrite_int_start(
-                    v26 / 4 +
-                    13); // fprintf(fp, "%c%c%c%c@@@@", LOBYTE(v23),
-                         // HIBYTE(v23), LOBYTE(v23 >> 16), HIBYTE(v23 >> 16));
-                pwrite_int(1 << 16); // fprintf(fp, "%c%c%c%c", 0, 0, 1, 0);
-                pwrite_int(
-                    header
-                        ->cupsWidth); // fprintf(fp, "%c%c%c%c",
-                                      // LOBYTE(printarea_x),
-                                      // HIBYTE(printarea_x), LOBYTE(printarea_x
-                                      // >> 16), HIBYTE(printarea_x >> 16));
-                pwrite_int(
-                    WidthInBytes);  // fprintf(fp, "%c%c%c%c",
-                                    // LOBYTE(WidthInBytes),
-                                    // HIBYTE(WidthInBytes), LOBYTE(WidthInBytes
-                                    // >> 16), HIBYTE(WidthInBytes >> 16));
-                pwrite_int(numVer); // fprintf(fp, "%c%c%c%c", LOBYTE(numVer),
-                                    // HIBYTE(numVer), LOBYTE(numVer >> 16),
-                                    // HIBYTE(numVer >> 16));
-                pwrite_int(numVertPacked); // fprintf(fp, "%c%c%c%c",
-                                           // LOBYTE(numVertPacked),
-                                           // HIBYTE(numVertPacked),
-                                           // LOBYTE(numVertPacked >> 16),
-                                           // HIBYTE(numVertPacked >> 16));
-                pwrite_int(1 << 8); // fprintf(fp, "%c%c%c%c", 0, 1, 0, 0);
-                pwrite_int(0);      // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-                pwrite_int(
-                    compressedLength); // fprintf(fp, "%c%c%c%c",
-                                       // LOBYTE(compressedLength),
-                                       // HIBYTE(compressedLength),
-                                       // LOBYTE(compressedLength >> 16),
-                                       // HIBYTE(compressedLength >> 16));
-                pwrite_int(
-                    v26); // fprintf(fp, "%c%c%c%c", LOBYTE(v26), HIBYTE(v26),
-                          // LOBYTE(v26 >> 16), HIBYTE(v26 >> 16));
-                pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-                pwrite_int(
-                    y -
-                    255); // fprintf(fp, "%c%c%c%c", LOBYTE(v25), HIBYTE(v25),
-                          // LOBYTE(v25 >> 16), HIBYTE(v25 >> 16));
-                pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-                pwrite_int(1); // fprintf(fp, "%c%c%c%c", 1, 0, 0, 0);
+                pwrite_int_start(v26 / 4 + 13);
+                pwrite_int(1 << 16);
+                pwrite_int(header->cupsWidth);
+                pwrite_int(WidthInBytes);
+                pwrite_int(numVer);
+                pwrite_int(numVertPacked);
+                pwrite_int(1 << 8);
+                pwrite_int(0);
+                pwrite_int(compressedLength);
+                pwrite_int(v26);
+                pwrite_int(0);
+                pwrite_int(y - 255);
+                pwrite_int(0);
+                pwrite_int(1);
                 if (compressedLength & 0x1F)
                     v27 = 32 - (((LOBYTE(compressedLength) +
                                   ((compressedLength >> 31) >> 27)) &
@@ -395,45 +364,17 @@ void SendPlanesData(cups_page_header2_t *header)
             else
             {
                 printf("\x1B$0R");
-                pwrite_int_start(
-                    iPlaneSize / 4 +
-                    10); // fprintf(fp, "%c%c%c%c@@@@", LOBYTE(v23),
-                         // HIBYTE(v23), LOBYTE(v23 >> 16), HIBYTE(v23 >> 16));
-                pwrite_int(
-                    header
-                        ->cupsWidth); // fprintf(fp, "%c%c%c%c",
-                                      // LOBYTE(printarea_x),
-                                      // HIBYTE(printarea_x), LOBYTE(printarea_x
-                                      // >> 16), HIBYTE(printarea_x >> 16));
-                pwrite_int(
-                    WidthInBytes);  // fprintf(fp, "%c%c%c%c",
-                                    // LOBYTE(WidthInBytes),
-                                    // HIBYTE(WidthInBytes), LOBYTE(WidthInBytes
-                                    // >> 16), HIBYTE(WidthInBytes >> 16));
-                pwrite_int(numVer); // fprintf(fp, "%c%c%c%c", LOBYTE(numVer),
-                                    // HIBYTE(numVer), LOBYTE(numVer >> 16),
-                                    // HIBYTE(numVer >> 16));
-                pwrite_int(numVertPacked);  // fprintf(fp, "%c%c%c%c",
-                                            // LOBYTE(numVertPacked),
-                                            // HIBYTE(numVertPacked),
-                                            // LOBYTE(numVertPacked >> 16),
-                                            // HIBYTE(numVertPacked >> 16));
-                pwrite_int(iRealPlaneSize); // fprintf(fp, "%c%c%c%c",
-                                            // LOBYTE(iRealPlaneSize),
-                                            // HIBYTE(iRealPlaneSize),
-                                            // LOBYTE(iRealPlaneSize >> 16),
-                                            // HIBYTE(iRealPlaneSize >> 16));
-                pwrite_int(
-                    iPlaneSize); // fprintf(fp, "%c%c%c%c", LOBYTE(iPlaneSize),
-                                 // HIBYTE(iPlaneSize), LOBYTE(iPlaneSize >>
-                                 // 16), HIBYTE(iPlaneSize >> 16));
-                pwrite_int(0);   // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-                pwrite_int(
-                    y -
-                    255); // fprintf(fp, "%c%c%c%c", LOBYTE(v25), HIBYTE(v25),
-                          // LOBYTE(v25 >> 16), HIBYTE(v25 >> 16));
-                pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
-                pwrite_int(1); // fprintf(fp, "%c%c%c%c", 1, 0, 0, 0);
+                pwrite_int_start(iPlaneSize / 4 + 10);
+                pwrite_int(header->cupsWidth);
+                pwrite_int(WidthInBytes);
+                pwrite_int(numVer);
+                pwrite_int(numVertPacked);
+                pwrite_int(iRealPlaneSize);
+                pwrite_int(iPlaneSize);
+                pwrite_int(0);
+                pwrite_int(y - 255);
+                pwrite_int(0);
+                pwrite_int(1);
                 if (y && insideBandCounter == 255)
                 {
                     fwrite(Planes, 1, WidthInBytes << 8, stdout);
@@ -508,7 +449,7 @@ void SendPlanesData(cups_page_header2_t *header)
     }
 }
 
-char *timestring(char *out)
+char *time_string(char *out)
 {
     char buffer[14];
     time_t v3 = time(0);
@@ -566,7 +507,7 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             fwrite(&buffer, 2, 16, stdout);
 
             char buf_time[14];
-            timestring((char *)&buf_time);
+            time_string((char *)&buf_time);
             fwrite(&buf_time, 1, sizeof(buf_time), stdout);
             pwrite_short(0);
 

@@ -1,46 +1,68 @@
+#include <math.h>
+
 #include "halfton.h"
 #include "string.h"
 
-/*
- * Globals...
- */
+unsigned char *dither_table;
 
-// Transfer2
-float m_fContrast;
-float m_fBrightness;
+unsigned dither_table_width;
+unsigned dither_table_height;
+int dither_table_pitch;
 
-// SetDitherGrayTable
-unsigned char *m_pDitherTable;
 
-unsigned m_DitherTableW;
-unsigned m_DitherTableH;
-int m_DitherTablePitch;
-
-unsigned char Transfer2(unsigned char value, int contrast, int brightness)
+unsigned char apply_transfer_function(unsigned char value, int contrast,
+                                      int brightness)
 {
-    if (contrast)
+
+    // Calculate adjusted contrast value
+    if (contrast != 0)
     {
-        m_fContrast = contrast * 0.000024999999F * contrast +
-                      0.0074999998F * contrast + 1.0F;
-        float c = (value - 128) * m_fContrast + 128.0F;
-        if (c < 0.0F)
+        const float contrast_factor_1 = 0.000024999999F;
+        const float contrast_factor_2 = 0.0074999998F;
+
+        float adjusted_contrast = contrast_factor_1 * contrast * contrast +
+                                  contrast_factor_2 * contrast + 1.0f;
+
+        float adjusted_value = (value - 128.0f) * adjusted_contrast + 128.0f;
+
+        // Clamp to valid range [0, 255]
+        if (adjusted_value < 0.0f)
+        {
             value = 0;
-        else if (c >= 255.0F)
+        }
+        else if (adjusted_value >= 255.0f)
+        {
             value = 255;
+        }
         else
-            value = (unsigned char)c;
+        {
+            value = (unsigned char)roundf(adjusted_value);
+        }
     }
-    if (brightness)
+
+    // Calculate adjusted brightness value
+    if (brightness != 0)
     {
-        m_fBrightness = (float)(0.0049999999 * brightness);
-        float b       = value + m_fBrightness * 255.0F;
-        if (b < 0.0F)
+        const float brightness_factor = 0.0049999999F;
+
+        float adjusted_brightness = brightness_factor * brightness;
+        float adjusted_value      = value + adjusted_brightness * 255.0f;
+
+        // Clamp to valid range [0, 255]
+        if (adjusted_value < 0.0f)
+        {
             value = 0;
-        else if (b >= 255.0F)
+        }
+        else if (adjusted_value >= 255.0f)
+        {
             value = 255;
+        }
         else
-            value = (unsigned char)b;
+        {
+            value = (unsigned char)roundf(adjusted_value);
+        }
     }
+
     return value;
 }
 
@@ -72,24 +94,24 @@ void set_dither_gray_table(signed char *table, unsigned width, unsigned height)
 {
     int v7;
 
-    if (m_pDitherTable)
-        free(m_pDitherTable);
-    m_DitherTableW = width;
-    m_DitherTableH = height;
+    if (dither_table)
+        free(dither_table);
+    dither_table_width  = width;
+    dither_table_height = height;
     if (width & 7)
         v7 = 7;
     else
         v7 = 0;
-    m_DitherTablePitch = m_DitherTableW + v7;
-    size_t s           = (m_DitherTableW + v7) * m_DitherTableH;
-    m_pDitherTable     = malloc(s);
-    memset(m_pDitherTable, 0, s);
-    for (int j = 0; j < m_DitherTableH; ++j)
+    dither_table_pitch = dither_table_width + v7;
+    size_t s           = (dither_table_width + v7) * dither_table_height;
+    dither_table       = malloc(s);
+    memset(dither_table, 0, s);
+    for (int j = 0; j < dither_table_height; ++j)
     {
-        for (int k = 0; k < m_DitherTablePitch; ++k)
-            m_pDitherTable[k + j * m_DitherTablePitch] =
-                (unsigned char)(-1 -
-                                table[j * m_DitherTableW + k % m_DitherTableW]);
+        for (int k = 0; k < dither_table_pitch; ++k)
+            dither_table[k + j * dither_table_pitch] =
+                (unsigned char)(-1 - table[j * dither_table_width +
+                                           k % dither_table_width]);
     }
 }
 
@@ -103,8 +125,8 @@ int get_line_bytes(int width, int mult)
     return ((mult * width + 31) & 0xFFFFFFE0) >> 3;
 }
 
-void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes, int width,
-                      int numver, int contrast, int brightness)
+void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes,
+                         int width, int numver, int contrast, int brightness)
 {
     int v7;
     int v8;
@@ -115,12 +137,13 @@ void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes, int widt
     unsigned char *v18;
     unsigned char v21;
 
-    if (!m_pDitherTable)
+    if (!dither_table)
         set_default_screen();
 
     for (int i = 0; i < 256; i++)
     {
-        transferTable[i] = Transfer2((unsigned char)i, contrast, brightness);
+        transferTable[i] =
+            apply_transfer_function((unsigned char)i, contrast, brightness);
     }
 
     v12 = width / 8;
@@ -130,7 +153,7 @@ void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes, int widt
     for (int j = 0; j < numver; j++)
     {
         unsigned char *v16 =
-            &m_pDitherTable[j % m_DitherTableH * m_DitherTablePitch];
+            &dither_table[j % dither_table_height * dither_table_pitch];
         v7      = get_line_bytes(width, 8);
         v17     = &planes8[j * v7];
         v8      = get_line_bytes(width, 1);
@@ -160,7 +183,7 @@ void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes, int widt
                                    (((transferTable[*v17] + *(v20)) & 0x100) >>
                                     1) |
                                    ((transferTable[v17[7]] + *(v20 + 7)) >> 8));
-            v19  = (v19 + 8) % m_DitherTableW;
+            v19  = (v19 + 8) % dither_table_width;
             v17 += 8;
             v18++;
         }

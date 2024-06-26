@@ -1,10 +1,10 @@
-#include <cups/raster.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 
-#include "rastertokpsl.h"
+#include <cups/raster.h>
 
+#include "rastertokpsl.h"
 
 /// @usage rastertopcl job-id user title copies options [raster_file]
 int main(int argc, const char **argv, const char **envp)
@@ -18,7 +18,7 @@ int main(int argc, const char **argv, const char **envp)
         return EXIT_FAILURE;
     }
 
-    int file_descriptor;
+    int file_descriptor = STDIN_FILENO;
 
     if (argc == 7)
     {
@@ -28,10 +28,6 @@ int main(int argc, const char **argv, const char **envp)
             _cupsLangPrintFilter(stderr, "ERROR", "Unable to open raster file");
             return EXIT_FAILURE;
         }
-    }
-    else
-    {
-        file_descriptor = STDIN_FILENO;
     }
 
     cups_raster_t *cups_printing_raster_stream =
