@@ -498,10 +498,8 @@ int rastertokpsl(cups_raster_t* raster_stream,
 
     sigset(SIGTERM, cancel_job);
 
-    setbuf(stderr, 0);
-
     cups_option_t* options = NULL;
-    int num_options        = cupsParseOptions(printing_options, 0, &options);
+    const int num_options  = cupsParseOptions(printing_options, 0, &options);
 
     current_page = 0;
 
@@ -545,24 +543,17 @@ int rastertokpsl(cups_raster_t* raster_stream,
                 light[0] = -atoi(value);
             else
                 light[0] = 0;
-            fprintf(stderr, "INFO: CaBrightness=%d\n", light[0]);
+            fprintf(stdout, "INFO: CaBrightness=%d\n", light[0]);
             value = cupsGetOption("CaContrast", num_options, options);
             if (value)
                 light[1] = atoi(value);
             else
                 light[1] = 0;
-            fprintf(stderr, "INFO: CaContrast=%d\n", light[1]);
+            fprintf(stdout, "INFO: CaContrast=%d\n", light[1]);
 
-            value = cupsGetOption(
-                "com.apple.print.PrintSettings.PMTotalBeginPages..n.",
-                num_options,
-                options);
-            if (value)
-                pages = atoi(value);
-            else
-                pdf_flag = 1;
-            fprintf(stderr, "INFO: pages=%d\n", pages);
-            fprintf(stderr, "INFO: pdf_flag=%d\n", pdf_flag);
+            pdf_flag = 1;
+            fprintf(stdout, "INFO: pages=%d\n", pages);
+            fprintf(stdout, "INFO: pdf_flag=%d\n", pdf_flag);
 
             /*
              * N-Up printing places multiple document pages on a single printed
@@ -570,28 +561,8 @@ int rastertokpsl(cups_raster_t* raster_stream,
              * format is 1-Up lp -o number-up=2 filename
              */
 
-            int nup_col = 0;
-            int nup_row = 0;
-            value       = cupsGetOption(
-                "com.apple.print.PrintSettings.PMLayoutColumns..n.",
-                num_options,
-                options);
-            if (value)
-                nup_col = atoi(value);
+            nup = 1;
 
-            value =
-                cupsGetOption("com.apple.print.PrintSettings.PMLayoutRows..n.",
-                              num_options,
-                              options);
-            if (value)
-                nup_row = atoi(value);
-
-            nup = nup_row * nup_col;
-            if (nup == 0)
-                nup = 1;
-
-            fprintf(stderr, "INFO: PMLayoutColumns=%d\n", nup_col);
-            fprintf(stderr, "INFO: PMLayoutRows=%d\n", nup_row);
             fprintf(stderr, "INFO: nup=%d\n", nup);
 
             printf("\x1B$0D");
@@ -627,22 +598,22 @@ int rastertokpsl(cups_raster_t* raster_stream,
             pwrite_int_start(2);
             pwrite_short(header.MediaPosition);
             int duplex = 0;
+
             if (header.Duplex)
+            {
                 duplex = header.Tumble + header.Duplex;
+            }
             else
+            {
                 duplex = 0;
-            value =
-                cupsGetOption("com.apple.print.PrintSettings.PMDuplexing..n.",
-                              num_options,
-                              options);
-            if (value)
-                duplex = atoi(value) - 1;
+            }
+
             pwrite_short(duplex);
-            value       = cupsGetOption("Feeding", num_options, options);
-            int feeding = value && !strcmp(value, "On");
+            value             = cupsGetOption("Feeding", num_options, options);
+            const int feeding = value && !strcmp(value, "On");
             pwrite_short(feeding);
             value = cupsGetOption("EngineSpeed", num_options, options);
-            int engine_speed = value && !strcmp(value, "On");
+            const int engine_speed = value && !strcmp(value, "On");
             pwrite_short(engine_speed);
 
             fprintf(stderr, "INFO: Duplex=%d\n", duplex);
@@ -677,9 +648,12 @@ int rastertokpsl(cups_raster_t* raster_stream,
             else
                 Orientation = (cups_orient_t)0;
         }
+
         if (current_page > 1)
+        {
             // Not last page
             end_page(0);
+        }
 
         header.cupsBitsPerColor = 1;
         header.cupsCompression  = 1;
@@ -689,9 +663,8 @@ int rastertokpsl(cups_raster_t* raster_stream,
          * Start the page...
          */
 
-        start_page(/*ppd,*/ &header);
+        start_page(&header);
 
-        // band = header.cupsHeight;
         num_ver         = 256;
         num_vert_packed = 256;
 
@@ -707,12 +680,12 @@ int rastertokpsl(cups_raster_t* raster_stream,
 
             if ((y & 0x3FF) == 0)
             {
-                _cupsLangPrintFilter(stderr,
+                _cupsLangPrintFilter(stdout,
                                      "INFO",
                                      "Printing page %d, %u%% complete.",
                                      current_page,
                                      100 * y / header.cupsHeight);
-                fprintf(stderr,
+                fprintf(stdout,
                         "ATTR: job-media-progress=%u\n",
                         100 * y / header.cupsHeight);
             }

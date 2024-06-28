@@ -6,7 +6,7 @@
 #include "rastertokpsl.h"
 
 /// @usage rastertokpsl job-id user title copies options [raster_file]
-int main(int argc, const char** argv, const char** envp)
+int main(int argc, const char** argv)
 {
     const char* rastertokpsl_file_path = argv[0];
     if (argc < 6 || argc > 7)
