@@ -29,19 +29,19 @@
 int vert_flag;
 int light[2];
 
-unsigned current_page;
-int pages;
-int pdf_flag;
+unsigned      current_page;
+int           pages;
+int           pdf_flag;
 cups_orient_t Orientation;
-const char *paper_size_name;
+const char*   paper_size_name;
 
 int nup;
 
 unsigned num_ver;
 unsigned num_vert_packed;
 
-unsigned char *next_lines;
-unsigned char *Lines;
+unsigned char* next_lines;
+unsigned char* Lines;
 
 int inside_band_counter;
 
@@ -52,16 +52,16 @@ unsigned i_plane_size;
 unsigned i_plane_size_8;
 
 // buffers
-unsigned char *planes;
-unsigned char *planes_8;
-unsigned char *out_buffer;
+unsigned char* planes;
+unsigned char* planes_8;
+unsigned char* out_buffer;
 
 // SendPlanesData
 unsigned y; /* Current line */
 unsigned f_write_j_big_header;
 unsigned compressed_length;
 
-void start_page(cups_page_header2_t *page_header)
+void start_page(cups_page_header2_t* page_header)
 {
     signed short orientation1, orientation2;
     signed short pageSizeEnum;
@@ -195,27 +195,39 @@ void start_page(cups_page_header2_t *page_header)
     i_plane_size      = i_real_plane_size;
     i_plane_size_8    = i_plane_size * 8;
     fprintf(stderr, "INFO: start_page()\n");
-    fprintf(stderr, "INFO: cupsHeight=%d(0x%X)\n", page_header->cupsHeight,
+    fprintf(stderr,
+            "INFO: cupsHeight=%d(0x%X)\n",
+            page_header->cupsHeight,
             page_header->cupsHeight);
-    fprintf(stderr, "INFO: cupsWidth=%d(0x%X) 0x%X\n", page_header->cupsWidth,
-            page_header->cupsWidth, page_header->cupsWidth >> 3);
-    fprintf(stderr, "INFO: width_in_bytes=%d(0x%X)\n", width_in_bytes,
+    fprintf(stderr,
+            "INFO: cupsWidth=%d(0x%X) 0x%X\n",
+            page_header->cupsWidth,
+            page_header->cupsWidth,
+            page_header->cupsWidth >> 3);
+    fprintf(stderr,
+            "INFO: width_in_bytes=%d(0x%X)\n",
+            width_in_bytes,
             width_in_bytes);
-    fprintf(stderr, "INFO: i_real_plane_size=%d(0x%X)\n", i_real_plane_size,
+    fprintf(stderr,
+            "INFO: i_real_plane_size=%d(0x%X)\n",
+            i_real_plane_size,
             i_real_plane_size);
-    fprintf(stderr, "INFO: i_plane_size=%d(0x%X)\n", i_plane_size, i_plane_size);
-    fprintf(stderr, "INFO: i_plane_size_8=%d(0x%X)\n", i_plane_size_8,
+    fprintf(
+        stderr, "INFO: i_plane_size=%d(0x%X)\n", i_plane_size, i_plane_size);
+    fprintf(stderr,
+            "INFO: i_plane_size_8=%d(0x%X)\n",
+            i_plane_size_8,
             i_plane_size_8);
 
-    planes = (unsigned char *)malloc(i_plane_size);
+    planes = (unsigned char*)malloc(i_plane_size);
     memset(planes, 0, i_plane_size);
-    planes_8 = (unsigned char *)malloc(i_plane_size_8);
+    planes_8 = (unsigned char*)malloc(i_plane_size_8);
     memset(planes_8, 0, i_plane_size_8);
-    Lines = (unsigned char *)malloc(8 * width_in_bytes);
+    Lines = (unsigned char*)malloc(8 * width_in_bytes);
     memset(Lines, 0, 8 * width_in_bytes);
-    next_lines = (unsigned char *)malloc(8 * width_in_bytes);
+    next_lines = (unsigned char*)malloc(8 * width_in_bytes);
     memset(next_lines, 0, 8 * width_in_bytes);
-    out_buffer = (unsigned char *)malloc(0x100000);
+    out_buffer = (unsigned char*)malloc(0x100000);
     memset(out_buffer, 0, 0x100000);
     printf("\x1B$0P");
     pwrite_int_start(3);
@@ -258,63 +270,76 @@ void shutdown_printer()
 
 void cancel_job(int signal)
 {
-    for (int i = 0; i <= 599; ++i)
+    for (size_t i = 0; i < 600; ++i)
     {
         putchar(0);
     }
     end_page(1);
     shutdown_printer();
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
-void OutputBie(unsigned char *start, size_t len, void *file)
+void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
 {
-    if (f_write_j_big_header && len == 20)
+    if (f_write_j_big_header && data_length == 20)
     {
         f_write_j_big_header = 0;
+        return;
     }
-    else
+    size_t         remaining_bytes = data_length;
+    unsigned char* output_ptr      = out_buffer + compressed_length;
+    unsigned char* input_ptr       = start;
+
+    while (remaining_bytes)
     {
-        size_t v3          = len;
-        unsigned char *out = out_buffer + compressed_length;
-        unsigned char *in  = start;
-        while (v3)
-        {
-            *out++ = *in++;
-            --v3;
-        }
-        compressed_length += len;
+        *output_ptr++ = *input_ptr++;
+        --remaining_bytes;
     }
+
+    compressed_length += data_length;
 }
 
-void SendPlanesData(cups_page_header2_t *header)
+void SendPlanesData(cups_page_header2_t* header)
 {
-    int v26;
+    int          v26;
     unsigned int v27;
 
     if (header->cupsCompression)
     {
-        memcpy(planes_8 + 8 * width_in_bytes * inside_band_counter, Lines,
+        memcpy(planes_8 + 8 * width_in_bytes * inside_band_counter,
+               Lines,
                8 * width_in_bytes);
 
         if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
         {
             if (y && inside_band_counter == 255)
             {
-                halftone_dib_to_dib(planes_8, planes, 8 * width_in_bytes, 256,
-                                    light[1], light[0]);
+                halftone_dib_to_dib(planes_8,
+                                    planes,
+                                    8 * width_in_bytes,
+                                    256,
+                                    light[1],
+                                    light[0]);
             }
             else if (header->cupsHeight - 1 == y)
             {
-                halftone_dib_to_dib(planes_8, planes, 8 * width_in_bytes,
+                halftone_dib_to_dib(planes_8,
+                                    planes,
+                                    8 * width_in_bytes,
                                     num_ver,
-                                    light[1], light[0]);
+                                    light[1],
+                                    light[0]);
             }
             f_write_j_big_header = 1;
             compressed_length    = 0;
             struct jbg_enc_state encState;
-            jbg_enc_init(&encState, 8 * width_in_bytes, num_ver, 1, &planes,
-                         OutputBie, stdout);
+            jbg_enc_init(&encState,
+                         8 * width_in_bytes,
+                         num_ver,
+                         1,
+                         &planes,
+                         write_data_to_buffer,
+                         stdout);
             jbg_enc_layers(&encState, 0);
             jbg_enc_options(&encState, 0, 0, 256, 0, 0);
             jbg_enc_out(&encState);
@@ -352,8 +377,8 @@ void SendPlanesData(cups_page_header2_t *header)
                 if (!vert_flag)
                 {
                     num_ver = LOBYTE(header->cupsHeight +
-                                    (header->cupsHeight >> 31 >> 24)) -
-                             (header->cupsHeight >> 31 >> 24);
+                                     (header->cupsHeight >> 31 >> 24)) -
+                              (header->cupsHeight >> 31 >> 24);
                     num_vert_packed   = 256;
                     i_real_plane_size = num_ver * width_in_bytes;
                     i_plane_size      = num_ver * width_in_bytes;
@@ -381,8 +406,8 @@ void SendPlanesData(cups_page_header2_t *header)
                     if (!vert_flag)
                     {
                         num_ver = LOBYTE(header->cupsHeight +
-                                        (header->cupsHeight >> 31 >> 24)) -
-                                 (header->cupsHeight >> 31 >> 24);
+                                         (header->cupsHeight >> 31 >> 24)) -
+                                  (header->cupsHeight >> 31 >> 24);
                         num_vert_packed   = 256;
                         i_real_plane_size = num_ver * width_in_bytes;
                         i_plane_size      = num_ver * width_in_bytes;
@@ -419,7 +444,9 @@ void SendPlanesData(cups_page_header2_t *header)
             pwrite_int(0);
             pwrite_int(1);
         }
-        memcpy(planes + (num_ver - inside_band_counter - 1) * width_in_bytes, Lines, width_in_bytes);
+        memcpy(planes + (num_ver - inside_band_counter - 1) * width_in_bytes,
+               Lines,
+               width_in_bytes);
         if (y && inside_band_counter == 255)
         {
             fwrite(planes, 1, width_in_bytes << 8, stdout);
@@ -427,8 +454,8 @@ void SendPlanesData(cups_page_header2_t *header)
             if (!vert_flag)
             {
                 num_ver = LOBYTE(header->cupsHeight +
-                                (header->cupsHeight >> 31 >> 24)) -
-                         (header->cupsHeight >> 31 >> 24);
+                                 (header->cupsHeight >> 31 >> 24)) -
+                          (header->cupsHeight >> 31 >> 24);
                 num_vert_packed   = 256;
                 i_real_plane_size = num_ver * width_in_bytes;
                 i_plane_size      = num_ver * width_in_bytes;
@@ -447,22 +474,25 @@ void SendPlanesData(cups_page_header2_t *header)
     }
 }
 
-char *time_string(char *out)
+char* get_time_string(char* output_buffer)
 {
-    char buffer[14];
-    time_t v3 = time(0);
+    char       time_buffer[15] = { 0 };
+    time_t     current_time    = time(NULL);
+    struct tm* local_time      = localtime(&current_time);
 
-    strftime((char *)&buffer, sizeof(buffer), "%Y%m%d%H%M%S", localtime(&v3));
-    return strncpy(out, (char *)&buffer, sizeof(buffer));
+    strftime(time_buffer, sizeof(time_buffer), "%Y%m%d%H%M%S", local_time);
+    return strncpy(output_buffer, time_buffer, sizeof(time_buffer) - 1);
 }
 
 /*
  * usage rastertopcl job-id user title copies options [raster_file]
  * cups_raster_t *ras;                Raster stream for printing
  */
-int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
-                 const char *job_title, int copies_number,
-                 const char *printing_options)
+int rastertokpsl(cups_raster_t* raster_stream,
+                 const char*    user_name,
+                 const char*    job_title,
+                 int            copies_number,
+                 const char*    printing_options)
 {
     cups_page_header2_t header; /* Page header from file */
 
@@ -470,14 +500,14 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
 
     setbuf(stderr, 0);
 
-    cups_option_t *options = NULL;
-    int num_options            = cupsParseOptions(printing_options, 0, &options);
+    cups_option_t* options = NULL;
+    int num_options        = cupsParseOptions(printing_options, 0, &options);
 
     current_page = 0;
 
     while (cupsRasterReadHeader2(raster_stream, &header))
     {
-        const char *value = NULL;
+        const char* value = NULL;
 
         ++current_page;
 
@@ -490,21 +520,23 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
              * header!
              */
 
-            printf("%c%c%c%c%c%c%c%c", 'L', 'S', 'P', 'K', '\x1B', '$', '0',
-                   'J');
+            printf(
+                "%c%c%c%c%c%c%c%c", 'L', 'S', 'P', 'K', '\x1B', '$', '0', 'J');
             pwrite_int_start_doc('\r');
 
             UTF16 buffer[64];
             memset(&buffer, 0, sizeof(buffer));
-            UTF16 *pbuffer   = (UTF16 *)&buffer;
-            const UTF8 *parg = (UTF8 *)user_name; // argv[2];
-            ConversionResult res =
-                ConvertUTF8toUTF16(&parg, parg + strlen(user_name), &pbuffer,
-                                   pbuffer + sizeof(buffer), strictConversion);
+            UTF16*           pbuffer = (UTF16*)&buffer;
+            const UTF8*      parg    = (UTF8*)user_name; // argv[2];
+            ConversionResult res     = ConvertUTF8toUTF16(&parg,
+                                                      parg + strlen(user_name),
+                                                      &pbuffer,
+                                                      pbuffer + sizeof(buffer),
+                                                      strictConversion);
             fwrite(&buffer, 2, 16, stdout);
 
             char buf_time[14];
-            time_string((char *)&buf_time);
+            get_time_string((char*)&buf_time);
             fwrite(&buf_time, 1, sizeof(buf_time), stdout);
             pwrite_short(0);
 
@@ -523,7 +555,8 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
 
             value = cupsGetOption(
                 "com.apple.print.PrintSettings.PMTotalBeginPages..n.",
-                num_options, options);
+                num_options,
+                options);
             if (value)
                 pages = atoi(value);
             else
@@ -541,13 +574,15 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             int nup_row = 0;
             value       = cupsGetOption(
                 "com.apple.print.PrintSettings.PMLayoutColumns..n.",
-                num_options, options);
+                num_options,
+                options);
             if (value)
                 nup_col = atoi(value);
 
             value =
                 cupsGetOption("com.apple.print.PrintSettings.PMLayoutRows..n.",
-                              num_options, options);
+                              num_options,
+                              options);
             if (value)
                 nup_row = atoi(value);
 
@@ -563,11 +598,13 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
             pwrite_int_start(16);
 
             memset(&buffer, 0, sizeof(buffer));
-            pbuffer = (UTF16 *)&buffer;
-            parg    = (UTF8 *)job_title;
-            res =
-                ConvertUTF8toUTF16(&parg, parg + strlen(job_title), &pbuffer,
-                                   pbuffer + sizeof(buffer), lenientConversion);
+            pbuffer = (UTF16*)&buffer;
+            parg    = (UTF8*)job_title;
+            res     = ConvertUTF8toUTF16(&parg,
+                                     parg + strlen(job_title),
+                                     &pbuffer,
+                                     pbuffer + sizeof(buffer),
+                                     lenientConversion);
             fwrite(&buffer, 2, 0x20, stdout);
 
             /*
@@ -596,7 +633,8 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
                 duplex = 0;
             value =
                 cupsGetOption("com.apple.print.PrintSettings.PMDuplexing..n.",
-                              num_options, options);
+                              num_options,
+                              options);
             if (value)
                 duplex = atoi(value) - 1;
             pwrite_short(duplex);
@@ -654,7 +692,7 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
         start_page(/*ppd,*/ &header);
 
         // band = header.cupsHeight;
-        num_ver       = 256;
+        num_ver         = 256;
         num_vert_packed = 256;
 
         /*
@@ -669,11 +707,13 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
 
             if ((y & 0x3FF) == 0)
             {
-                _cupsLangPrintFilter(stderr, "INFO",
+                _cupsLangPrintFilter(stderr,
+                                     "INFO",
                                      "Printing page %d, %u%% complete.",
                                      current_page,
                                      100 * y / header.cupsHeight);
-                fprintf(stderr, "ATTR: job-media-progress=%u\n",
+                fprintf(stderr,
+                        "ATTR: job-media-progress=%u\n",
                         100 * y / header.cupsHeight);
             }
 
@@ -681,8 +721,8 @@ int rastertokpsl(cups_raster_t *raster_stream, const char *user_name,
              * Read a line of graphics...
              */
 
-            if (cupsRasterReadPixels(raster_stream, next_lines,
-                                     header.cupsBytesPerLine) < 1)
+            if (cupsRasterReadPixels(
+                    raster_stream, next_lines, header.cupsBytesPerLine) < 1)
                 break;
 
             inside_band_counter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);

@@ -8,3 +8,5 @@ add_executable(test_rastertokpsl
 
 target_link_libraries(test_rastertokpsl PRIVATE cups cupsimage unicode)
 target_include_directories(test_rastertokpsl PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+target_link_options(test_rastertokpsl PRIVATE "-lm")

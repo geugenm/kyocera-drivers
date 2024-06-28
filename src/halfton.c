@@ -1,16 +1,18 @@
 #include <math.h>
+#include <stdio.h>
 
 #include "halfton.h"
 #include "string.h"
 
-unsigned char *dither_table;
+unsigned char* dither_table;
 
 unsigned dither_table_width;
 unsigned dither_table_height;
-int dither_table_pitch;
+int      dither_table_pitch;
 
-unsigned char apply_transfer_function(unsigned char value, int contrast,
-                                      int brightness)
+unsigned char apply_transfer_function(unsigned char value,
+                                      int           contrast,
+                                      int           brightness)
 {
 
     // Calculate adjusted contrast value
@@ -87,9 +89,12 @@ static unsigned char device_best_dither[256] = {
     0x3D, 0x0D, 0x15, 0x5D, 0xC5, 0xF5, 0xED, 0xA5, 0x37, 0x07, 0x1F, 0x57,
     0xCF, 0xFE, 0xE7, 0xAF, 0x35, 0x05, 0x1D, 0x55, 0xCD, 0xFD, 0xE5, 0xAD,
     0x67, 0x27, 0x2F, 0x7F, 0x9F, 0xDF, 0xD7, 0x87, 0x65, 0x25, 0x2D, 0x7D,
-    0x9D, 0xDD, 0xD5, 0x85};
+    0x9D, 0xDD, 0xD5, 0x85
+};
 
-void set_dither_gray_table(signed char *input_table, unsigned width, unsigned height)
+void set_dither_gray_table(signed char* input_table,
+                           unsigned     width,
+                           unsigned     height)
 {
     free(dither_table);
 
@@ -111,30 +116,35 @@ void set_dither_gray_table(signed char *input_table, unsigned width, unsigned he
     size_t table_size  = (dither_table_width + v7) * dither_table_height;
     dither_table       = malloc(table_size);
     memset(dither_table, 0, table_size);
-    if (!dither_table) {
-        // todo: handle memory allocation failure
+
+    if (!dither_table)
+    {
+        fprintf(stderr, "ERROR:  Unable to allocate dither table!\n");
         return;
     }
 
     // Populate the dither table with transformed input values
-    for (unsigned row = 0; row < dither_table_height; ++row) {
-        for (int col = 0; col < dither_table_pitch; ++col) {
+    for (unsigned row = 0; row < dither_table_height; ++row)
+    {
+        for (int col = 0; col < dither_table_pitch; ++col)
+        {
             // Calculate the index for the flattened array
-            const int dest_index = col + row * dither_table_pitch;
+            const int destination_index = col + row * dither_table_pitch;
 
             // Wrap the column index for values that extend beyond input width
             const int source_col = col % dither_table_width;
 
             // Apply the transformation (using your original logic)
-            dither_table[dest_index] =
-                (unsigned char)(-1 - input_table[row * dither_table_width + source_col]);
+            dither_table[destination_index] =
+                (unsigned char)(-1 - input_table[row * dither_table_width +
+                                                 source_col]);
         }
     }
 }
 
 void set_default_screen()
 {
-    set_dither_gray_table((signed char *)&device_best_dither, 16, 16);
+    set_dither_gray_table((signed char*)&device_best_dither, 16, 16);
 }
 
 int get_line_bytes(int width, int mult)
@@ -142,17 +152,21 @@ int get_line_bytes(int width, int mult)
     return ((mult * width + 31) & 0xFFFFFFE0) >> 3;
 }
 
-void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes,
-                         int width, int numver, int contrast, int brightness)
+void halftone_dib_to_dib(unsigned char* planes8,
+                         unsigned char* planes,
+                         int            width,
+                         int            numver,
+                         int            contrast,
+                         int            brightness)
 {
-    int v7;
-    int v8;
-    unsigned char transferTable[256];
-    int v12;
-    unsigned int v13;
-    unsigned char *v17;
-    unsigned char *v18;
-    unsigned char v21;
+    int            v7;
+    int            v8;
+    unsigned char  transferTable[256];
+    int            v12;
+    unsigned int   v13;
+    unsigned char* v17;
+    unsigned char* v18;
+    unsigned char  v21;
 
     if (!dither_table)
         set_default_screen();
@@ -169,7 +183,7 @@ void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes,
 
     for (int j = 0; j < numver; j++)
     {
-        unsigned char *v16 =
+        unsigned char* v16 =
             &dither_table[j % dither_table_height * dither_table_pitch];
         v7      = get_line_bytes(width, 8);
         v17     = &planes8[j * v7];
@@ -178,7 +192,7 @@ void halftone_dib_to_dib(unsigned char *planes8, unsigned char *planes,
         int v19 = 0;
         for (int k = 0; k < v12; k++)
         {
-            unsigned char *v20 = v16 + v19;
+            unsigned char* v20 = v16 + v19;
             *v18 = (unsigned char)((((transferTable[v17[6]] + *(v20 + 6)) &
                                      0x100) >>
                                     7) |
