@@ -15,7 +15,6 @@ unsigned char apply_transfer_function(unsigned char value,
                                       int           brightness)
 {
 
-    // Calculate adjusted contrast value
     if (contrast != 0)
     {
         const float contrast_factor_1 = 0.000024999999F;
@@ -41,7 +40,6 @@ unsigned char apply_transfer_function(unsigned char value,
         }
     }
 
-    // Calculate adjusted brightness value
     if (brightness != 0)
     {
         const float brightness_factor = 0.0049999999F;
@@ -112,9 +110,9 @@ void set_dither_gray_table(signed char* input_table,
         v7 = 0;
     }
 
-    dither_table_pitch = dither_table_width + v7;
-    size_t table_size  = (dither_table_width + v7) * dither_table_height;
-    dither_table       = malloc(table_size);
+    dither_table_pitch      = dither_table_width + v7;
+    const size_t table_size = (dither_table_width + v7) * dither_table_height;
+    dither_table            = malloc(table_size);
     memset(dither_table, 0, table_size);
 
     if (!dither_table)
@@ -124,15 +122,15 @@ void set_dither_gray_table(signed char* input_table,
     }
 
     // Populate the dither table with transformed input values
-    for (unsigned row = 0; row < dither_table_height; ++row)
+    for (size_t row = 0; row < dither_table_height; ++row)
     {
-        for (int col = 0; col < dither_table_pitch; ++col)
+        for (size_t col = 0; col < dither_table_pitch; ++col)
         {
             // Calculate the index for the flattened array
-            const int destination_index = col + row * dither_table_pitch;
+            const size_t destination_index = col + row * dither_table_pitch;
 
             // Wrap the column index for values that extend beyond input width
-            const int source_col = col % dither_table_width;
+            const size_t source_col = col % dither_table_width;
 
             // Apply the transformation (using your original logic)
             dither_table[destination_index] =
@@ -147,83 +145,101 @@ void set_default_screen()
     set_dither_gray_table((signed char*)&device_best_dither, 16, 16);
 }
 
-int get_line_bytes(int width, int mult)
+size_t get_line_bytes(int width, int multiplier)
 {
-    return ((mult * width + 31) & 0xFFFFFFE0) >> 3;
+    return ((multiplier * width + 31) & 0xFFFFFFE0) >> 3;
 }
 
-void halftone_dib_to_dib(unsigned char* planes8,
-                         unsigned char* planes,
-                         int            width,
-                         int            numver,
+void halftone_dib_to_dib(unsigned char* source_planes8,
+                         unsigned char* destination_planes,
+                         int            image_width,
+                         int            num_rows,
                          int            contrast,
                          int            brightness)
 {
-    int            v7;
-    int            v8;
-    unsigned char  transferTable[256];
-    int            v12;
-    unsigned int   v13;
-    unsigned char* v17;
-    unsigned char* v18;
-    unsigned char  v21;
-
     if (!dither_table)
-        set_default_screen();
-
-    for (int i = 0; i < 256; i++)
     {
-        transferTable[i] =
-            apply_transfer_function((unsigned char)i, contrast, brightness);
+        set_default_screen();
     }
 
-    v12 = width / 8;
-    v13 = (((char)width + ((unsigned int)(width >> 31) >> 29)) & 7) -
-          ((unsigned int)(width >> 31) >> 29);
+    const size_t  transfer_table_length = 256;
+    unsigned char transfer_table[transfer_table_length];
 
-    for (int j = 0; j < numver; j++)
+    for (unsigned char i = 0; i < transfer_table_length; i++)
     {
-        unsigned char* v16 =
+        transfer_table[i] = apply_transfer_function(i, contrast, brightness);
+    }
+
+    const size_t bytes_per_row = (image_width + 7) / 8;
+
+    const unsigned int dither_table_row_index =
+        (((char)image_width + ((unsigned int)(image_width >> 31) >> 29)) & 7) -
+        ((unsigned int)(image_width >> 31) >> 29);
+
+    const size_t row_index    = get_line_bytes(image_width, 8);
+    const size_t column_index = get_line_bytes(image_width, 1);
+
+    for (size_t j = 0; j < num_rows; j++)
+    {
+        unsigned char* dither_table_row =
             &dither_table[j % dither_table_height * dither_table_pitch];
-        v7      = get_line_bytes(width, 8);
-        v17     = &planes8[j * v7];
-        v8      = get_line_bytes(width, 1);
-        v18     = &planes[j * v8];
-        int v19 = 0;
-        for (int k = 0; k < v12; k++)
+        unsigned char* source_row_pointer = &source_planes8[j * row_index];
+        unsigned char* destination_row_pointer =
+            &destination_planes[j * column_index];
+        size_t dither_table_column_index = 0;
+
+        for (size_t k = 0; k < bytes_per_row; k++)
         {
-            unsigned char* v20 = v16 + v19;
-            *v18 = (unsigned char)((((transferTable[v17[6]] + *(v20 + 6)) &
-                                     0x100) >>
-                                    7) |
-                                   (((transferTable[v17[5]] + *(v20 + 5)) &
-                                     0x100) >>
-                                    6) |
-                                   (((transferTable[v17[4]] + *(v20 + 4)) &
-                                     0x100) >>
-                                    5) |
-                                   (((transferTable[v17[3]] + *(v20 + 3)) &
-                                     0x100) >>
-                                    4) |
-                                   (((transferTable[v17[2]] + *(v20 + 2)) &
-                                     0x100) >>
-                                    3) |
-                                   (((transferTable[v17[1]] + *(v20 + 1)) &
-                                     0x100) >>
-                                    2) |
-                                   (((transferTable[*v17] + *(v20)) & 0x100) >>
-                                    1) |
-                                   ((transferTable[v17[7]] + *(v20 + 7)) >> 8));
-            v19  = (v19 + 8) % dither_table_width;
-            v17 += 8;
-            v18++;
+            unsigned char* dither_table_column =
+                dither_table_row + dither_table_column_index;
+            *destination_row_pointer =
+                (unsigned char)((((transfer_table[source_row_pointer[6]] +
+                                   dither_table_column[6]) &
+                                  0x100) >>
+                                 7) |
+                                (((transfer_table[source_row_pointer[5]] +
+                                   dither_table_column[5]) &
+                                  0x100) >>
+                                 6) |
+                                (((transfer_table[source_row_pointer[4]] +
+                                   dither_table_column[4]) &
+                                  0x100) >>
+                                 5) |
+                                (((transfer_table[source_row_pointer[3]] +
+                                   dither_table_column[3]) &
+                                  0x100) >>
+                                 4) |
+                                (((transfer_table[source_row_pointer[2]] +
+                                   dither_table_column[2]) &
+                                  0x100) >>
+                                 3) |
+                                (((transfer_table[source_row_pointer[1]] +
+                                   dither_table_column[1]) &
+                                  0x100) >>
+                                 2) |
+                                (((transfer_table[*source_row_pointer] +
+                                   dither_table_column[0]) &
+                                  0x100) >>
+                                 1) |
+                                ((transfer_table[source_row_pointer[7]] +
+                                  dither_table_column[7]) >>
+                                 8));
+            dither_table_column_index =
+                (dither_table_column_index + 8) % dither_table_width;
+            source_row_pointer += 8;
+            destination_row_pointer++;
         }
-        if (v13)
+
+        if (dither_table_row_index)
         {
-            v21 = 0;
-            for (int l = 0; l < v13; ++l)
-                v21 |= ((v17[l] + *(v16 + v19 + l)) & 0x100) >> (l + 1);
-            *v18 = v21;
+            unsigned char pixel_value = 0;
+            for (size_t l = 0; l < dither_table_row_index; ++l)
+                pixel_value |=
+                    ((source_row_pointer[l] +
+                      dither_table_row[dither_table_column_index + l]) &
+                     0x100) >>
+                    (l + 1);
+            *destination_row_pointer = pixel_value;
         }
     }
 }
