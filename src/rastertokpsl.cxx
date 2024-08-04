@@ -34,16 +34,13 @@ extern "C"
 #define pwrite_int_start(n) pwrite_int_f((FORMAT_INT_START), (n))
 #define pwrite_int_start_doc(n) pwrite_int_f((FORMAT_INT_START_DOC), (n))
 
-int32_t                vert_flag;
+bool               vert_flag;
 std::array<int, 2> light;
 
 uint32_t         current_page;
-int32_t              pages;
-int32_t              pdf_flag;
+int32_t          pages;
 cups_orient_t    Orientation;
 std::string_view paper_size_name;
-
-int32_t nup;
 
 uint32_t num_ver;
 uint32_t num_vert_packed;
@@ -66,7 +63,7 @@ uint8_t* out_buffer;
 
 // send_planes_data
 uint32_t current_line;
-uint32_t f_write_j_big_header;
+bool     f_should_write_j_big_header;
 uint32_t compressed_length;
 
 void print_page_header_info(const cups_page_header2_t* page_header)
@@ -165,8 +162,7 @@ void start_page(cups_page_header2_t* page_header)
     int16_t page_size_enum;
 
     page_size_enum = 0;
-    switch (const auto header_orientation =
-                static_cast<size_t>(page_header->Orientation))
+    switch (static_cast<size_t>(page_header->Orientation))
     {
         case 5:
             orientation1 = 1;
@@ -271,13 +267,13 @@ void cancel_job(int signal)
 
 void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
 {
-    if (f_write_j_big_header && data_length == 20)
+    if (f_should_write_j_big_header && data_length == 20)
     {
-        f_write_j_big_header = 0;
+        f_should_write_j_big_header = false;
         return;
     }
-    size_t         remaining_bytes = data_length;
-    unsigned char* output_ptr      = out_buffer + compressed_length;
+    size_t               remaining_bytes = data_length;
+    unsigned char*       output_ptr      = out_buffer + compressed_length;
     unsigned char const* input_ptr       = start;
 
     while (remaining_bytes)
@@ -291,8 +287,8 @@ void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
 
 void send_planes_data(cups_page_header2_t* header)
 {
-    int          v26;
-    unsigned int v27;
+    uint32_t v26;
+    uint32_t v27;
 
     if (header->cupsCompression)
     {
@@ -300,7 +296,8 @@ void send_planes_data(cups_page_header2_t* header)
                Lines,
                8 * width_in_bytes);
 
-        if ((current_line && inside_band_counter == 255) || (header->cupsHeight - 1 == current_line))
+        if ((current_line && inside_band_counter == 255) ||
+            (header->cupsHeight - 1 == current_line))
         {
             if (current_line && inside_band_counter == 255)
             {
@@ -320,9 +317,11 @@ void send_planes_data(cups_page_header2_t* header)
                                     light[1],
                                     light[0]);
             }
-            f_write_j_big_header = 1;
-            compressed_length    = 0;
-            struct jbg_enc_state encState{};
+            f_should_write_j_big_header = true;
+            compressed_length           = 0;
+            struct jbg_enc_state encState
+            {
+            };
             jbg_enc_init(&encState,
                          8 * width_in_bytes,
                          num_ver,
@@ -334,7 +333,8 @@ void send_planes_data(cups_page_header2_t* header)
             jbg_enc_options(&encState, 0, 0, 256, 0, 0);
             jbg_enc_out(&encState);
             jbg_enc_free(&encState);
-            v26 = 32 * (signed int)floor((compressed_length + 31) / 32.0);
+            v26 = static_cast<uint32_t>(32 *
+                                        floor((compressed_length + 31) / 32.0));
             if (i_plane_size >= v26)
             {
                 std::cout << "\x1B$0B" << std::endl;
@@ -418,7 +418,8 @@ void send_planes_data(cups_page_header2_t* header)
     }
     else
     {
-        if ((current_line && inside_band_counter == 255) || (header->cupsHeight - 1 == current_line))
+        if ((current_line && inside_band_counter == 255) ||
+            (header->cupsHeight - 1 == current_line))
         {
             std::cout << "\x1B$0R" << std::endl;
             pwrite_int_start(i_plane_size / 4 + 10);
@@ -500,7 +501,7 @@ std::size_t rastertokpsl(cups_raster_t* raster_stream,
 
         ++current_page;
 
-        vert_flag = 1;
+        vert_flag = true;
         if (current_page == 1)
         {
             /*
@@ -557,19 +558,13 @@ std::size_t rastertokpsl(cups_raster_t* raster_stream,
 
             std::cout << "INFO: CaContrast=" << light[1] << '\n';
 
-            pdf_flag = 1;
             std::cout << "INFO: pages=" << pages << '\n';
-            std::cout << "INFO: pdf_flag=" << pdf_flag << '\n';
 
             /*
              * N-Up printing places multiple document pages on a single printed
              * page CUPS supports 1, 2, 4, 6, 9, and 16-Up formats; the default
              * format is 1-Up lp -o number-up=2 filename
              */
-
-            nup = 1;
-
-            std::cerr << "INFO: nup=" << nup << '\n';
 
             std::cout << "\x1B$0D" << std::endl;
 
@@ -670,7 +665,8 @@ std::size_t rastertokpsl(cups_raster_t* raster_stream,
         {
             if ((current_line & 0x3FF) == 0)
             {
-                const uint32_t job_media_progress = 100 * current_line / header.cupsHeight;
+                const uint32_t job_media_progress =
+                    100 * current_line / header.cupsHeight;
                 _cupsLangPrintFilter(stdout,
                                      "INFO",
                                      "Printing page %d, %u%% complete.",
@@ -688,9 +684,11 @@ std::size_t rastertokpsl(cups_raster_t* raster_stream,
                     raster_stream, next_lines, header.cupsBytesPerLine) < 1)
                 break;
 
-            inside_band_counter = LOBYTE(current_line + (current_line >> 31 >> 24)) - (current_line >> 31 >> 24);
+            inside_band_counter =
+                LOBYTE(current_line + (current_line >> 31 >> 24)) -
+                (current_line >> 31 >> 24);
             if (vert_flag && header.cupsHeight - current_line <= 0xFF)
-                vert_flag = 0;
+                vert_flag = false;
 
             /*
              * Write it to the printer...
