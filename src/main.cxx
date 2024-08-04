@@ -2,15 +2,10 @@
 #include <filesystem>
 #include <iostream>
 
-extern "C"
-{
 #include <cups/raster.h>
-}
 
 #include "rastertokpsl.hxx"
 
-
-/// @usage rastertokpsl job-id user title copies options [raster_file]
 int main(int argc, const char** argv)
 {
     const std::filesystem::path rastertokpsl_executable = argv[0];
@@ -48,12 +43,12 @@ int main(int argc, const char** argv)
         return EXIT_FAILURE;
     }
 
-    const char* requested_copies_number = argv[4];
-    int32_t copies_number;
+    const std::string_view requested_copies_number = argv[4];
+    uint32_t copies_number;
 
     try
     {
-        copies_number = std::stoi(requested_copies_number);
+        copies_number = std::stoul(requested_copies_number.data());
     }
     catch (const std::invalid_argument & e) {
         std::cerr << "Invalid copies number given:" << e.what();
@@ -64,9 +59,9 @@ int main(int argc, const char** argv)
         return EXIT_FAILURE;
     }
 
-    const char* user_name        = argv[2];
-    const char* job_title        = argv[3];
-    const char* printing_options = argv[5];
+    const std::string_view user_name        = argv[2];
+    const std::string_view job_title        = argv[3];
+    const std::string_view printing_options = argv[5];
 
     const size_t pages_number = rastertokpsl(cups_printing_raster_stream,
                                                user_name,

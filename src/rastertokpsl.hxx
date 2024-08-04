@@ -12,28 +12,8 @@
 #include <cstdio>
 #include <cwchar>
 
-#include <cups/raster.h>
-#include <cups/versioning.h>
-
-// <cups/language-private.h>
-extern "C"
-{
-    extern int _cupsLangPrintFilter(FILE*       file_to_write_to,
-                                    const char* non_localized_msg_prefix,
-                                    const char* message,
-                                    ...) _CUPS_FORMAT(3, 4) _CUPS_PRIVATE;
-
-}
-// end <cups/language-private.h>
-
-void start_page(cups_page_header2_t* page_header);
-void end_page(int section_end);
-void shutdown_printer();
-
-void cancel_job(int signal);
-
-std::size_t rastertokpsl(cups_raster_t* raster_stream,
-                 const char*    user_name,
-                 const char*    job_title,
-                 int            copies_number,
-                 const char*    printing_options);
+[[nodiscard]] std::size_t rastertokpsl(cups_raster_t* raster_stream,
+                                       std::string_view user_name,
+                                       std::string_view job_title,
+                                       uint32_t         copies_number,
+                                       std::string_view printing_options);

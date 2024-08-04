@@ -6,18 +6,28 @@
 #include <iostream>
 #include <unordered_map>
 
-extern "C"
-{
 #include <cups/cups.h>
 #include <cups/raster.h>
 
+#include "rastertokpsl.hxx"
+
+extern "C"
+{
 #include <ConvertUTF.h>
 #include <jbig.h>
 
 #include "halfton.h"
 }
 
-#include "rastertokpsl.hxx"
+// <cups/language-private.h>
+extern "C"
+{
+    extern int _cupsLangPrintFilter(FILE*       file_to_write_to,
+                                    const char* non_localized_msg_prefix,
+                                    const char* message,
+                                    ...) _CUPS_FORMAT(3, 4) _CUPS_PRIVATE;
+}
+// end <cups/language-private.h>
 
 #define LOBYTE(w) (unsigned char)(w)
 #define HIBYTE(w) (unsigned char)(((unsigned short)(w) >> 8) & 0xFF)
@@ -122,6 +132,14 @@ enum class page_size
     Unknown   = 19
 };
 
+void      setup_first_page(const std::string_view&    user_name,
+                           const std::string_view&    job_title,
+                           uint32_t                   copies_number,
+                           const std::string_view&    printing_options,
+                           const cups_page_header2_t& header,
+                           cups_option_t*             options,
+                           const int                  options_number,
+                           const char*                value);
 page_size get_page_size_enum(const std::string_view& size_name)
 {
     using enum page_size;
@@ -480,18 +498,19 @@ char* get_time_string(char* output_buffer)
  * usage rastertopcl job-id user title copies options [raster_file]
  * cups_raster_t *ras;                Raster stream for printing
  */
-std::size_t rastertokpsl(cups_raster_t* raster_stream,
-                         const char*    user_name,
-                         const char*    job_title,
-                         int            copies_number,
-                         const char*    printing_options)
+std::size_t rastertokpsl(cups_raster_t*   raster_stream,
+                         std::string_view user_name,
+                         std::string_view job_title,
+                         uint32_t         copies_number,
+                         std::string_view printing_options)
 {
     cups_page_header2_t header; /* Page header from file */
 
     signal(SIGTERM, cancel_job);
 
     cups_option_t* options = nullptr;
-    const int num_options  = cupsParseOptions(printing_options, 0, &options);
+    const int      options_number =
+        cupsParseOptions(printing_options.data(), 0, &options);
 
     current_page = 0;
 
@@ -504,142 +523,14 @@ std::size_t rastertokpsl(cups_raster_t* raster_stream,
         vert_flag = true;
         if (current_page == 1)
         {
-            /*
-             * Setup job in the raster read circle - for setup needs data from
-             * header!
-             */
-
-            std::cout << "LSPK" << '\x1B' << "$0J" << std::endl;
-            pwrite_int_start_doc('\r');
-
-            constexpr auto get_utf16_buffer = [](std::string_view input_string)
-            {
-                std::array<UTF16, 64> output_buffer{};
-                auto*                 source_to_start = (UTF16*)&output_buffer;
-                const auto* target_start = (const UTF8*)input_string.data();
-                ConversionResult conversion_result =
-                    ConvertUTF8toUTF16(&target_start,
-                                       target_start + input_string.length(),
-                                       &source_to_start,
-                                       source_to_start + output_buffer.size(),
-                                       strictConversion);
-                assert(conversion_result == conversionOK);
-                return output_buffer;
-            };
-
-            const auto utf16_user_name = get_utf16_buffer(user_name);
-            fwrite(&utf16_user_name, 2, 16, stdout);
-
-            std::string_view buf_time;
-            get_time_string((char*)&buf_time);
-            fwrite(&buf_time, 1, buf_time.length(), stdout);
-            pwrite_short(0);
-
-            value = cupsGetOption("CaBrightness", num_options, options);
-            if (value)
-            {
-                light[0] = -std::atoi(value);
-            }
-            else
-            {
-                light[0] = 0;
-            }
-
-            std::cout << "INFO: CaBrightness=" << light[0] << '\n';
-            value = cupsGetOption("CaContrast", num_options, options);
-            if (value)
-            {
-                light[1] = atoi(value);
-            }
-            else
-            {
-                light[1] = 0;
-            }
-
-            std::cout << "INFO: CaContrast=" << light[1] << '\n';
-
-            std::cout << "INFO: pages=" << pages << '\n';
-
-            /*
-             * N-Up printing places multiple document pages on a single printed
-             * page CUPS supports 1, 2, 4, 6, 9, and 16-Up formats; the default
-             * format is 1-Up lp -o number-up=2 filename
-             */
-
-            std::cout << "\x1B$0D" << std::endl;
-
-            pwrite_int_start(16);
-
-            const auto utf16_job_title = get_utf16_buffer(job_title);
-            fwrite(&utf16_job_title, 2, 0x20, stdout);
-
-            /*
-             * Multiple Copies, normally not collated
-             *   lp -n num-copies -o Collate=True filename
-             */
-
-            int collate = 0;
-            if (strstr(printing_options, " collate"))
-            {
-                collate       = 1;
-                copies_number = 1;
-            }
-            std::cout << "\x1B$0C" << std::endl;
-            pwrite_int_start(1);
-            pwrite_short(copies_number);
-            pwrite_short(collate);
-
-            std::cout << "\x1B$0S" << std::endl;
-            pwrite_int_start(2);
-            pwrite_short(header.MediaPosition);
-            int duplex = 0;
-
-            if (header.Duplex)
-            {
-                duplex = header.Tumble + header.Duplex;
-            }
-
-            pwrite_short(duplex);
-            value             = cupsGetOption("Feeding", num_options, options);
-            const int feeding = value && !strcmp(value, "On");
-            pwrite_short(feeding);
-            value = cupsGetOption("EngineSpeed", num_options, options);
-            const int engine_speed = value && !strcmp(value, "On");
-            pwrite_short(engine_speed);
-
-            std::cerr << "INFO: duplex=" << duplex << '\n';
-            std::cerr << "INFO: feeding=" << feeding << '\n';
-            std::cerr << "INFO: engine_speed=" << engine_speed << '\n';
-
-            std::cout << "\x1B$0G" << std::endl;
-            pwrite_int_start(3);
-            value = cupsGetOption("Resolution", num_options, options);
-
-            int w_resolution = 600;
-            int h_resolution = 600;
-
-            if (value && !strcmp(value, "300dpi"))
-            {
-                h_resolution = 300;
-                w_resolution = 300;
-            }
-            pwrite_short(w_resolution);
-            pwrite_short(h_resolution);
-            pwrite_short(1);
-            pwrite_short(1);
-            pwrite_short(32);
-            pwrite_short(1 << 8);
-
-            paper_size_name = cupsGetOption("page_size", num_options, options);
-            if (!paper_size_name.empty())
-                paper_size_name = cupsGetOption("media", num_options, options);
-
-            value =
-                cupsGetOption("orientation-requested", num_options, options);
-            if (value)
-                Orientation = (cups_orient_t)atoi(value);
-            else
-                Orientation = (cups_orient_t)0;
+            setup_first_page(user_name,
+                             job_title,
+                             copies_number,
+                             printing_options,
+                             header,
+                             options,
+                             options_number,
+                             value);
         }
 
         if (current_page > 1)
@@ -713,4 +604,149 @@ std::size_t rastertokpsl(cups_raster_t* raster_stream,
     pwrite_int_start(0);
 
     return current_page;
+}
+
+void setup_first_page(const std::string_view&    user_name,
+                      const std::string_view&    job_title,
+                      uint32_t                   copies_number,
+                      const std::string_view&    printing_options,
+                      const cups_page_header2_t& header,
+                      cups_option_t*             options,
+                      const int                  options_number,
+                      const char*                value)
+{ /*
+   * Setup job in the raster read circle - for setup needs data from
+   * header!
+   */
+
+    std::cout << "LSPK" << '\x1B' << "$0J" << std::endl;
+    pwrite_int_start_doc('\r');
+
+    constexpr auto get_utf16_buffer = [](std::string_view input_string)
+    {
+        std::array<UTF16, 64> output_buffer{};
+        auto*                 source_to_start = (UTF16*)&output_buffer;
+        const auto*           target_start = (const UTF8*)input_string.data();
+        ConversionResult      conversion_result =
+            ConvertUTF8toUTF16(&target_start,
+                               target_start + input_string.length(),
+                               &source_to_start,
+                               source_to_start + output_buffer.size(),
+                               strictConversion);
+        assert(conversion_result == conversionOK);
+        return output_buffer;
+    };
+
+    const auto utf16_user_name = get_utf16_buffer(user_name);
+    fwrite(&utf16_user_name, 2, 16, stdout);
+
+    std::string_view buf_time;
+    get_time_string((char*)&buf_time);
+    fwrite(&buf_time, 1, buf_time.length(), stdout);
+    pwrite_short(0);
+
+    value = cupsGetOption("CaBrightness", options_number, options);
+    if (value)
+    {
+        light[0] = -std::stoi(value);
+    }
+    else
+    {
+        light[0] = 0;
+    }
+
+    std::cout << "INFO: CaBrightness=" << light[0] << '\n';
+    value = cupsGetOption("CaContrast", options_number, options);
+    if (value)
+    {
+        light[1] = std::stoi(value);
+    }
+    else
+    {
+        light[1] = 0;
+    }
+
+    std::cout << "INFO: CaContrast=" << light[1] << '\n';
+
+    std::cout << "INFO: pages=" << pages << '\n';
+
+    /*
+     * N-Up printing places multiple document pages on a single printed
+     * page CUPS supports 1, 2, 4, 6, 9, and 16-Up formats; the default
+     * format is 1-Up lp -o number-up=2 filename
+     */
+
+    std::cout << "\x1B$0D" << std::endl;
+
+    pwrite_int_start(16);
+
+    const auto utf16_job_title = get_utf16_buffer(job_title);
+    fwrite(&utf16_job_title, 2, 0x20, stdout);
+
+    /*
+     * Multiple Copies, normally not collated
+     *   lp -n num-copies -o Collate=True filename
+     */
+
+    int collate = 0;
+    if (printing_options == " collate")
+    {
+        collate       = 1;
+        copies_number = 1;
+    }
+    std::cout << "\x1B$0C" << std::endl;
+    pwrite_int_start(1);
+    pwrite_short(copies_number);
+    pwrite_short(collate);
+
+    std::cout << "\x1B$0S" << std::endl;
+    pwrite_int_start(2);
+    pwrite_short(header.MediaPosition);
+    int duplex = 0;
+
+    if (header.Duplex)
+    {
+        duplex = header.Tumble + header.Duplex;
+    }
+
+    pwrite_short(duplex);
+    value             = cupsGetOption("Feeding", options_number, options);
+    const int feeding = value && !strcmp(value, "On");
+    pwrite_short(feeding);
+    value = cupsGetOption("EngineSpeed", options_number, options);
+    const int engine_speed = value && !strcmp(value, "On");
+    pwrite_short(engine_speed);
+
+    std::cerr << "INFO: duplex=" << duplex << '\n';
+    std::cerr << "INFO: feeding=" << feeding << '\n';
+    std::cerr << "INFO: engine_speed=" << engine_speed << '\n';
+
+    std::cout << "\x1B$0G" << std::endl;
+    pwrite_int_start(3);
+    value = cupsGetOption("Resolution", options_number, options);
+
+    int w_resolution = 600;
+    int h_resolution = 600;
+
+    if (value && !strcmp(value, "300dpi"))
+    {
+        h_resolution = 300;
+        w_resolution = 300;
+    }
+    pwrite_short(w_resolution);
+    pwrite_short(h_resolution);
+    pwrite_short(1);
+    pwrite_short(1);
+    pwrite_short(32);
+    pwrite_short(1 << 8);
+
+    paper_size_name = cupsGetOption("page_size", options_number, options);
+    if (!paper_size_name.empty())
+        paper_size_name = cupsGetOption("media", options_number, options);
+
+    value = cupsGetOption("orientation-requested", options_number, options);
+    if (value)
+        Orientation = (cups_orient_t)atoi(value);
+    else
+        Orientation = (cups_orient_t)0;
 }
