@@ -1,75 +1,65 @@
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "halfton.h"
-#include "string.h"
 
 unsigned char* dither_table;
-unsigned dither_table_width;
-unsigned dither_table_height;
-int      dither_table_pitch;
+unsigned       dither_table_width;
+unsigned       dither_table_height;
+int            dither_table_pitch;
 
-unsigned char * get_dither_table()
+unsigned char* get_current_dither_table()
 {
     return dither_table;
+}
+
+unsigned char clamp_to_0_255_range(float adjusted_value)
+{
+    if (adjusted_value < 0.0f)
+    {
+        return 0;
+    }
+
+    if (adjusted_value >= 255.0f)
+    {
+        return 255;
+    }
+
+    return (unsigned char)roundf(adjusted_value);
 }
 
 unsigned char apply_transfer_function(unsigned char value,
                                       int           contrast,
                                       int           brightness)
 {
-
     if (contrast != 0)
     {
         const float contrast_factor_1 = 0.000024999999F;
         const float contrast_factor_2 = 0.0074999998F;
 
-        float adjusted_contrast = contrast_factor_1 * contrast * contrast +
+        const float adjusted_contrast = contrast_factor_1 * contrast * contrast +
                                   contrast_factor_2 * contrast + 1.0f;
 
-        float adjusted_value = (value - 128.0f) * adjusted_contrast + 128.0f;
-
-        // Clamp to valid range [0, 255]
-        if (adjusted_value < 0.0f)
-        {
-            value = 0;
-        }
-        else if (adjusted_value >= 255.0f)
-        {
-            value = 255;
-        }
-        else
-        {
-            value = (unsigned char)roundf(adjusted_value);
-        }
+        const float adjusted_value = (value - 128.0f) * adjusted_contrast + 128.0f;
+        value = clamp_to_0_255_range(adjusted_value);
     }
 
     if (brightness != 0)
     {
         const float brightness_factor = 0.0049999999F;
 
-        float adjusted_brightness = brightness_factor * brightness;
-        float adjusted_value      = value + adjusted_brightness * 255.0f;
+        const float adjusted_brightness = brightness_factor * brightness;
+        const float adjusted_value      = value + adjusted_brightness * 255.0f;
 
-        // Clamp to valid range [0, 255]
-        if (adjusted_value < 0.0f)
-        {
-            value = 0;
-        }
-        else if (adjusted_value >= 255.0f)
-        {
-            value = 255;
-        }
-        else
-        {
-            value = (unsigned char)roundf(adjusted_value);
-        }
+        value = clamp_to_0_255_range(adjusted_value);
     }
 
     return value;
 }
 
-static unsigned char device_best_dither[256] = {
+
+static const unsigned char device_best_dither[256] = {
     0x91, 0xB9, 0xB1, 0x89, 0x6B, 0x43, 0x4B, 0x73, 0x93, 0xBB, 0xB3, 0x8B,
     0x69, 0x41, 0x49, 0x71, 0xC1, 0xF1, 0xE9, 0xA1, 0x3B, 0x0B, 0x13, 0x5B,
     0xC3, 0xF3, 0xEB, 0xA3, 0x39, 0x09, 0x11, 0x59, 0xC9, 0xF9, 0xE1, 0xA9,
@@ -94,7 +84,7 @@ static unsigned char device_best_dither[256] = {
     0x9D, 0xDD, 0xD5, 0x85
 };
 
-void set_dither_gray_table(signed char* input_table,
+void set_dither_gray_table(const signed char* input_table,
                            unsigned     width,
                            unsigned     height)
 {
@@ -103,19 +93,10 @@ void set_dither_gray_table(signed char* input_table,
     dither_table_width  = width;
     dither_table_height = height;
 
-    int v7;
+    const int padding = (width & 7) ? 7 : 0;
 
-    if (width & 7)
-    {
-        v7 = 7;
-    }
-    else
-    {
-        v7 = 0;
-    }
-
-    dither_table_pitch      = dither_table_width + v7;
-    const size_t table_size = (dither_table_width + v7) * dither_table_height;
+    dither_table_pitch      = dither_table_width + padding;
+    const size_t table_size = (dither_table_width + padding) * dither_table_height;
     dither_table            = malloc(table_size);
     memset(dither_table, 0, table_size);
 
@@ -149,15 +130,16 @@ void set_default_screen()
     set_dither_gray_table((signed char*)&device_best_dither, 16, 16);
 }
 
-size_t get_line_bytes(int width, int multiplier)
-{
-    return ((multiplier * width + 31) & 0xFFFFFFE0) >> 3;
+size_t get_line_bytes(int width, int multiplier) {
+    const int totalBytes = multiplier * width;
+    const int alignedBytes = (totalBytes + 31) & ~31;
+    return (size_t)alignedBytes >> 3;
 }
 
 void halftone_dib_to_dib(unsigned char* source_planes8,
                          unsigned char* destination_planes,
-                         int            image_width,
-                         int            num_rows,
+                         size_t         image_width,
+                         size_t         num_rows,
                          int            contrast,
                          int            brightness)
 {

@@ -1,10 +1,8 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
-#include <cstring>
 #include <string>
 
-// need access to the static vars
 extern "C"
 {
 #include "halfton.h"
@@ -40,7 +38,7 @@ static constexpr std::array<uint8_t, dither_table_size> expected_dither_table = 
 void test_set_default_screen()
 {
     set_default_screen();
-    const uint8_t *     obtained_raw_dither_table = get_dither_table();
+    const uint8_t *     obtained_raw_dither_table = get_current_dither_table();
     std::array<uint8_t, dither_table_size>  obtained_dither_table{};
     std::copy(obtained_raw_dither_table,
               obtained_raw_dither_table + dither_table_size,
