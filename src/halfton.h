@@ -10,4 +10,5 @@ void halftone_dib_to_dib(unsigned char* source_planes8,
                          int            brightness);
 
 void set_default_screen();
+
 unsigned char * get_current_dither_table();

@@ -38,10 +38,12 @@ unsigned char apply_transfer_function(unsigned char value,
         const float contrast_factor_1 = 0.000024999999F;
         const float contrast_factor_2 = 0.0074999998F;
 
-        const float adjusted_contrast = contrast_factor_1 * contrast * contrast +
-                                  contrast_factor_2 * contrast + 1.0f;
+        const float adjusted_contrast =
+            contrast_factor_1 * contrast * contrast +
+            contrast_factor_2 * contrast + 1.0f;
 
-        const float adjusted_value = (value - 128.0f) * adjusted_contrast + 128.0f;
+        const float adjusted_value =
+            (value - 128.0f) * adjusted_contrast + 128.0f;
         value = clamp_to_0_255_range(adjusted_value);
     }
 
@@ -57,7 +59,6 @@ unsigned char apply_transfer_function(unsigned char value,
 
     return value;
 }
-
 
 static const unsigned char device_best_dither[256] = {
     0x91, 0xB9, 0xB1, 0x89, 0x6B, 0x43, 0x4B, 0x73, 0x93, 0xBB, 0xB3, 0x8B,
@@ -85,8 +86,8 @@ static const unsigned char device_best_dither[256] = {
 };
 
 void set_dither_gray_table(const signed char* input_table,
-                           unsigned     width,
-                           unsigned     height)
+                           unsigned           width,
+                           unsigned           height)
 {
     free(dither_table);
 
@@ -95,9 +96,10 @@ void set_dither_gray_table(const signed char* input_table,
 
     const int padding = (width & 7) ? 7 : 0;
 
-    dither_table_pitch      = dither_table_width + padding;
-    const size_t table_size = (dither_table_width + padding) * dither_table_height;
-    dither_table            = malloc(table_size);
+    dither_table_pitch = dither_table_width + padding;
+    const size_t table_size =
+        (dither_table_width + padding) * dither_table_height;
+    dither_table = malloc(table_size);
     memset(dither_table, 0, table_size);
 
     if (!dither_table)
@@ -130,10 +132,49 @@ void set_default_screen()
     set_dither_gray_table((signed char*)&device_best_dither, 16, 16);
 }
 
-size_t get_line_bytes(int width, int multiplier) {
-    const int totalBytes = multiplier * width;
+size_t get_line_bytes(int width, int multiplier)
+{
+    const int totalBytes   = multiplier * width;
     const int alignedBytes = (totalBytes + 31) & ~31;
     return (size_t)alignedBytes >> 3;
+}
+
+unsigned char apply_dithering_and_transfer(
+    const unsigned char* transfer_table,
+    const unsigned char* source_row_pointer,
+    const unsigned char* dither_table_column)
+{
+    return (unsigned char)((((transfer_table[source_row_pointer[6]] +
+                              dither_table_column[6]) &
+                             0x100) >>
+                            7) |
+                           (((transfer_table[source_row_pointer[5]] +
+                              dither_table_column[5]) &
+                             0x100) >>
+                            6) |
+                           (((transfer_table[source_row_pointer[4]] +
+                              dither_table_column[4]) &
+                             0x100) >>
+                            5) |
+                           (((transfer_table[source_row_pointer[3]] +
+                              dither_table_column[3]) &
+                             0x100) >>
+                            4) |
+                           (((transfer_table[source_row_pointer[2]] +
+                              dither_table_column[2]) &
+                             0x100) >>
+                            3) |
+                           (((transfer_table[source_row_pointer[1]] +
+                              dither_table_column[1]) &
+                             0x100) >>
+                            2) |
+                           (((transfer_table[*source_row_pointer] +
+                              dither_table_column[0]) &
+                             0x100) >>
+                            1) |
+                           ((transfer_table[source_row_pointer[7]] +
+                             dither_table_column[7]) >>
+                            8));
 }
 
 void halftone_dib_to_dib(unsigned char* source_planes8,
@@ -178,38 +219,8 @@ void halftone_dib_to_dib(unsigned char* source_planes8,
         {
             unsigned char* dither_table_column =
                 dither_table_row + dither_table_column_index;
-            *destination_row_pointer =
-                (unsigned char)((((transfer_table[source_row_pointer[6]] +
-                                   dither_table_column[6]) &
-                                  0x100) >>
-                                 7) |
-                                (((transfer_table[source_row_pointer[5]] +
-                                   dither_table_column[5]) &
-                                  0x100) >>
-                                 6) |
-                                (((transfer_table[source_row_pointer[4]] +
-                                   dither_table_column[4]) &
-                                  0x100) >>
-                                 5) |
-                                (((transfer_table[source_row_pointer[3]] +
-                                   dither_table_column[3]) &
-                                  0x100) >>
-                                 4) |
-                                (((transfer_table[source_row_pointer[2]] +
-                                   dither_table_column[2]) &
-                                  0x100) >>
-                                 3) |
-                                (((transfer_table[source_row_pointer[1]] +
-                                   dither_table_column[1]) &
-                                  0x100) >>
-                                 2) |
-                                (((transfer_table[*source_row_pointer] +
-                                   dither_table_column[0]) &
-                                  0x100) >>
-                                 1) |
-                                ((transfer_table[source_row_pointer[7]] +
-                                  dither_table_column[7]) >>
-                                 8));
+            *destination_row_pointer = apply_dithering_and_transfer(
+                transfer_table, source_row_pointer, dither_table_column);
             dither_table_column_index =
                 (dither_table_column_index + 8) % dither_table_width;
             source_row_pointer += 8;
