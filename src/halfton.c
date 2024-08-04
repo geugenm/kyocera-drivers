@@ -5,10 +5,14 @@
 #include "string.h"
 
 unsigned char* dither_table;
-
 unsigned dither_table_width;
 unsigned dither_table_height;
 int      dither_table_pitch;
+
+unsigned char * get_dither_table()
+{
+    return dither_table;
+}
 
 unsigned char apply_transfer_function(unsigned char value,
                                       int           contrast,

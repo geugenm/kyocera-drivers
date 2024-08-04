@@ -11,8 +11,8 @@
 #include "halfton.h"
 #include "rastertokpsl.h"
 
-#define LOBYTE(w) ((unsigned char)(w))
-#define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
+#define LOBYTE(w) (unsigned char)(w)
+#define HIBYTE(w) (unsigned char)(((unsigned short)(w) >> 8) & 0xFF)
 
 #define FORMAT_SHORT "%c%c"
 #define FORMAT_INT "%c%c%c%c"

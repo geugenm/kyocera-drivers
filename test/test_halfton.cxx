@@ -1,10 +1,18 @@
-#include <string.h>
+#include <array>
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <string>
 
 // need access to the static vars
-#include "halfton.c"
-#include "minunit.h"
+extern "C"
+{
+#include "halfton.h"
+}
 
-static unsigned char DitherTableExpected[256] = {
+static constexpr std::size_t dither_table_size = 256;
+
+static constexpr std::array<uint8_t, dither_table_size> expected_dither_table = {
     0x6E, 0x46, 0x4E, 0x76, 0x94, 0xBC, 0xB4, 0x8C, 0x6C, 0x44, 0x4C, 0x74,
     0x96, 0xBE, 0xB6, 0x8E, 0x3E, 0x0E, 0x16, 0x5E, 0xC4, 0xF4, 0xEC, 0xA4,
     0x3C, 0x0C, 0x14, 0x5C, 0xC6, 0xF6, 0xEE, 0xA6, 0x36, 0x06, 0x1E, 0x56,
@@ -29,10 +37,13 @@ static unsigned char DitherTableExpected[256] = {
     0x62, 0x22, 0x2A, 0x7A,
 };
 
-char* test_setDefaultScreen()
+void test_set_default_screen()
 {
     set_default_screen();
-    int res = memcmp(dither_table, &DitherTableExpected, 256);
-    mu_assert("error, setDefaultScreen()", res == 0);
-    return 0;
+    const uint8_t *     obtained_raw_dither_table = get_dither_table();
+    std::array<uint8_t, dither_table_size>  obtained_dither_table{};
+    std::copy(obtained_raw_dither_table,
+              obtained_raw_dither_table + dither_table_size,
+              obtained_dither_table.begin());
+    assert(obtained_dither_table == expected_dither_table);
 }
