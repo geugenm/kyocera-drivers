@@ -32,7 +32,7 @@ void shutdown_printer();
 
 void cancel_job(int signal);
 
-int rastertokpsl(cups_raster_t* raster_stream,
+std::size_t rastertokpsl(cups_raster_t* raster_stream,
                  const char*    user_name,
                  const char*    job_title,
                  int            copies_number,

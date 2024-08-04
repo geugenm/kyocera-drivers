@@ -1,3 +1,5 @@
+#include <array>
+#include <cassert>
 #include <cmath>
 #include <csignal>
 #include <fcntl.h>
@@ -32,64 +34,64 @@ extern "C"
 #define pwrite_int_start(n) pwrite_int_f((FORMAT_INT_START), (n))
 #define pwrite_int_start_doc(n) pwrite_int_f((FORMAT_INT_START_DOC), (n))
 
-int vert_flag;
-int light[2];
+int32_t                vert_flag;
+std::array<int, 2> light;
 
-unsigned      current_page;
-int           pages;
-int           pdf_flag;
-cups_orient_t Orientation;
-std::string_view  paper_size_name;
+uint32_t         current_page;
+int32_t              pages;
+int32_t              pdf_flag;
+cups_orient_t    Orientation;
+std::string_view paper_size_name;
 
-int nup;
+int32_t nup;
 
-unsigned num_ver;
-unsigned num_vert_packed;
+uint32_t num_ver;
+uint32_t num_vert_packed;
 
-unsigned char* next_lines;
-unsigned char* Lines;
+uint8_t* next_lines;
+uint8_t* Lines;
 
-int inside_band_counter;
+int32_t inside_band_counter;
 
 // StartPage
-unsigned width_in_bytes;
-unsigned i_real_plane_size;
-unsigned i_plane_size;
-unsigned i_plane_size_8;
+uint32_t width_in_bytes;
+uint32_t i_real_plane_size;
+uint32_t i_plane_size;
+uint32_t i_plane_size_8;
 
 // buffers
-unsigned char* planes;
-unsigned char* planes_8;
-unsigned char* out_buffer;
+uint8_t* planes;
+uint8_t* planes_8;
+uint8_t* out_buffer;
 
-// SendPlanesData
-unsigned y; /* Current line */
-unsigned f_write_j_big_header;
-unsigned compressed_length;
+// send_planes_data
+uint32_t current_line;
+uint32_t f_write_j_big_header;
+uint32_t compressed_length;
 
 void print_page_header_info(const cups_page_header2_t* page_header)
 {
-    std::cout << "INFO: cupsHeight=" << page_header->cupsHeight << " (0x"
+    std::cerr << "INFO: cupsHeight=" << page_header->cupsHeight << " (0x"
               << std::hex << std::uppercase << page_header->cupsHeight << ")"
               << std::dec << std::endl;
 
-    std::cout << "INFO: cupsWidth=" << page_header->cupsWidth << " (0x"
+    std::cerr << "INFO: cupsWidth=" << page_header->cupsWidth << " (0x"
               << std::hex << std::uppercase << page_header->cupsWidth << ") "
               << " (0x" << (page_header->cupsWidth >> 3) << ")" << std::dec
               << std::endl;
 
-    std::cout << "INFO: width_in_bytes=" << width_in_bytes << " (0x" << std::hex
+    std::cerr << "INFO: width_in_bytes=" << width_in_bytes << " (0x" << std::hex
               << std::uppercase << width_in_bytes << ")" << std::dec
               << std::endl;
 
-    std::cout << "INFO: i_real_plane_size=" << i_real_plane_size << " (0x"
+    std::cerr << "INFO: i_real_plane_size=" << i_real_plane_size << " (0x"
               << std::hex << std::uppercase << i_real_plane_size << ")"
               << std::dec << std::endl;
 
-    std::cout << "INFO: i_plane_size=" << i_plane_size << " (0x" << std::hex
+    std::cerr << "INFO: i_plane_size=" << i_plane_size << " (0x" << std::hex
               << std::uppercase << i_plane_size << ")" << std::dec << std::endl;
 
-    std::cout << "INFO: i_plane_size_8=" << i_plane_size_8 << " (0x" << std::hex
+    std::cerr << "INFO: i_plane_size_8=" << i_plane_size_8 << " (0x" << std::hex
               << std::uppercase << i_plane_size_8 << ")" << std::dec
               << std::endl;
 }
@@ -114,54 +116,55 @@ enum class page_size
     Env9,
     EnvPersonal,
     ISOB5,
-    EnvC4 = 30,
-    OficioII = 33,
-    P16K = 40,
+    EnvC4     = 30,
+    OficioII  = 33,
+    P16K      = 40,
     Statement = 50,
-    Folio = 51,
-    OficioMX = 42,
-    Unknown = 19
+    Folio     = 51,
+    OficioMX  = 42,
+    Unknown   = 19
 };
 
-page_size get_page_size_enum(const std::string_view& paper_size_name) {
-    static const std::unordered_map<std::string_view, page_size> paperSizeMap = {
-        {"EnvMonarch", page_size::EnvMonarch},
-        {"Env10", page_size::Env10},
-        {"EnvDL", page_size::EnvDL},
-        {"EnvC5", page_size::EnvC5},
-        {"Executive", page_size::Executive},
-        {"Letter", page_size::Letter},
-        {"Legal", page_size::Legal},
-        {"A4", page_size::A4},
-        {"B5", page_size::B5},
-        {"A3", page_size::A3},
-        {"B4", page_size::B4},
-        {"Tabloid", page_size::Tabloid},
-        {"A5", page_size::A5},
-        {"A6", page_size::A6},
-        {"B6", page_size::B6},
-        {"Env9", page_size::Env9},
-        {"EnvPersonal", page_size::EnvPersonal},
-        {"ISOB5", page_size::ISOB5},
-        {"EnvC4", page_size::EnvC4},
-        {"OficioII", page_size::OficioII},
-        {"P16K", page_size::P16K},
-        {"Statement", page_size::Statement},
-        {"Folio", page_size::Folio},
-        {"OficioMX", page_size::OficioMX}
-    };
+page_size get_page_size_enum(const std::string_view& size_name)
+{
+    using enum page_size;
+    static const std::unordered_map<std::string_view, page_size>
+        paper_size_map = { { "EnvMonarch", EnvMonarch },
+                           { "Env10", Env10 },
+                           { "EnvDL", EnvDL },
+                           { "EnvC5", EnvC5 },
+                           { "Executive", Executive },
+                           { "Letter", Letter },
+                           { "Legal", Legal },
+                           { "A4", A4 },
+                           { "B5", B5 },
+                           { "A3", A3 },
+                           { "B4", B4 },
+                           { "Tabloid", Tabloid },
+                           { "A5", A5 },
+                           { "A6", A6 },
+                           { "B6", B6 },
+                           { "Env9", Env9 },
+                           { "EnvPersonal", EnvPersonal },
+                           { "ISOB5", ISOB5 },
+                           { "EnvC4", EnvC4 },
+                           { "OficioII", OficioII },
+                           { "P16K", P16K },
+                           { "Statement", Statement },
+                           { "Folio", Folio },
+                           { "OficioMX", OficioMX } };
 
-    auto it = paperSizeMap.find(paper_size_name);
-    return (it != paperSizeMap.end()) ? it->second : page_size::Unknown;
+    auto it = paper_size_map.find(size_name);
+    return (it != paper_size_map.end()) ? it->second : Unknown;
 }
 
 void start_page(cups_page_header2_t* page_header)
 {
     int16_t orientation1;
     int16_t orientation2;
-    int16_t pageSizeEnum;
+    int16_t page_size_enum;
 
-    pageSizeEnum = 0;
+    page_size_enum = 0;
     switch (const auto header_orientation =
                 static_cast<size_t>(page_header->Orientation))
     {
@@ -185,7 +188,7 @@ void start_page(cups_page_header2_t* page_header)
 
     if (!paper_size_name.empty())
     {
-        pageSizeEnum = static_cast<int16_t>(
+        page_size_enum = static_cast<int16_t>(
             static_cast<int>(get_page_size_enum(paper_size_name)));
     }
 
@@ -195,6 +198,7 @@ void start_page(cups_page_header2_t* page_header)
     i_plane_size      = i_real_plane_size;
     i_plane_size_8    = i_plane_size * 8;
 
+    std::cerr << "INFO: start_page()\n";
     print_page_header_info(page_header);
 
     planes = (unsigned char*)malloc(i_plane_size);
@@ -207,35 +211,43 @@ void start_page(cups_page_header2_t* page_header)
     memset(next_lines, 0, 8 * width_in_bytes);
     out_buffer = (unsigned char*)malloc(0x100000);
     memset(out_buffer, 0, 0x100000);
-    printf("\x1B$0P");
+
+    std::cout << "\x1B$0P" << std::endl;
     pwrite_int_start(3);
     pwrite_short(orientation1);
     pwrite_short(orientation2);
-    unsigned short metricWidth =
-        (unsigned short)floor(10.0 * (page_header->PageSize[0] * 0.352777778));
-    unsigned short metricHeight =
-        (unsigned short)floor(10.0 * (page_header->PageSize[1] * 0.352777778));
-    fprintf(stderr, "INFO: metricWidth=%d\n", metricWidth);
-    fprintf(stderr, "INFO: metricHeight=%d\n", metricHeight);
-    pwrite_short(metricWidth);
-    pwrite_short(metricHeight);
-    pwrite_short(pageSizeEnum);
+
+    const auto get_page_metric =
+        [&page_header](const std::size_t metric_index) -> uint16_t
+    {
+        return static_cast<uint16_t>(
+            floor(10.0 * (page_header->PageSize[metric_index] * 0.352777778)));
+    };
+
+    const auto metric_width  = get_page_metric(0);
+    const auto metric_height = get_page_metric(1);
+
+    std::cerr << "INFO: metric width = " << metric_width
+              << ", metric height = " << metric_height << std::endl;
+    pwrite_short(metric_width);
+    pwrite_short(metric_height);
+    pwrite_short(page_size_enum);
     pwrite_short(page_header->cupsMediaType);
 }
 
 void end_page(int section_end)
 {
-    fprintf(stderr, "INFO: end_page()\n");
-    printf("\x1B$0F");
+    std::cerr << "INFO: end_page()\n";
+    std::cout << "\x1B$0F" << std::endl;
     pwrite_int_start(1);
-    fprintf(stderr, "INFO: sectionEndFlag=%d\n", section_end);
+    std::cerr << "INFO: sectionEndFlag=" << section_end << std::endl;
     pwrite_int(section_end);
     fflush(stdout);
     free(planes);
     free(planes_8);
     free(Lines);
     free(next_lines);
-    if (out_buffer != 0)
+    if (out_buffer != nullptr)
     {
         free(out_buffer);
     }
@@ -243,7 +255,7 @@ void end_page(int section_end)
 
 void shutdown_printer()
 {
-    printf("%c%c", '\x1B', 'E');
+    std::cout << '\x1B' << 'E';
 }
 
 void cancel_job(int signal)
@@ -266,7 +278,7 @@ void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
     }
     size_t         remaining_bytes = data_length;
     unsigned char* output_ptr      = out_buffer + compressed_length;
-    unsigned char* input_ptr       = start;
+    unsigned char const* input_ptr       = start;
 
     while (remaining_bytes)
     {
@@ -277,7 +289,7 @@ void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
     compressed_length += data_length;
 }
 
-void SendPlanesData(cups_page_header2_t* header)
+void send_planes_data(cups_page_header2_t* header)
 {
     int          v26;
     unsigned int v27;
@@ -288,9 +300,9 @@ void SendPlanesData(cups_page_header2_t* header)
                Lines,
                8 * width_in_bytes);
 
-        if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
+        if ((current_line && inside_band_counter == 255) || (header->cupsHeight - 1 == current_line))
         {
-            if (y && inside_band_counter == 255)
+            if (current_line && inside_band_counter == 255)
             {
                 halftone_dib_to_dib(planes_8,
                                     planes,
@@ -299,7 +311,7 @@ void SendPlanesData(cups_page_header2_t* header)
                                     light[1],
                                     light[0]);
             }
-            else if (header->cupsHeight - 1 == y)
+            else if (header->cupsHeight - 1 == current_line)
             {
                 halftone_dib_to_dib(planes_8,
                                     planes,
@@ -310,7 +322,7 @@ void SendPlanesData(cups_page_header2_t* header)
             }
             f_write_j_big_header = 1;
             compressed_length    = 0;
-            struct jbg_enc_state encState;
+            struct jbg_enc_state encState{};
             jbg_enc_init(&encState,
                          8 * width_in_bytes,
                          num_ver,
@@ -325,7 +337,7 @@ void SendPlanesData(cups_page_header2_t* header)
             v26 = 32 * (signed int)floor((compressed_length + 31) / 32.0);
             if (i_plane_size >= v26)
             {
-                printf("\x1B$0B");
+                std::cout << "\x1B$0B" << std::endl;
                 pwrite_int_start(v26 / 4 + 13);
                 pwrite_int(1 << 16);
                 pwrite_int(header->cupsWidth);
@@ -337,7 +349,7 @@ void SendPlanesData(cups_page_header2_t* header)
                 pwrite_int(compressed_length);
                 pwrite_int(v26);
                 pwrite_int(0);
-                pwrite_int(y - 255);
+                pwrite_int(current_line - 255);
                 pwrite_int(0);
                 pwrite_int(1);
                 if (compressed_length & 0x1F)
@@ -365,7 +377,7 @@ void SendPlanesData(cups_page_header2_t* header)
             }
             else
             {
-                printf("\x1B$0R");
+                std::cout << "\x1B$0R" << std::endl;
                 pwrite_int_start(i_plane_size / 4 + 10);
                 pwrite_int(header->cupsWidth);
                 pwrite_int(width_in_bytes);
@@ -374,10 +386,10 @@ void SendPlanesData(cups_page_header2_t* header)
                 pwrite_int(i_real_plane_size);
                 pwrite_int(i_plane_size);
                 pwrite_int(0);
-                pwrite_int(y - 255);
+                pwrite_int(current_line - 255);
                 pwrite_int(0);
                 pwrite_int(1);
-                if (y && inside_band_counter == 255)
+                if (current_line && inside_band_counter == 255)
                 {
                     fwrite(planes, 1, width_in_bytes << 8, stdout);
                     memset(planes, 0, width_in_bytes << 8);
@@ -394,7 +406,7 @@ void SendPlanesData(cups_page_header2_t* header)
                 }
                 else
                 {
-                    if (header->cupsHeight - 1 == y)
+                    if (header->cupsHeight - 1 == current_line)
                     {
                         fwrite(planes, 1, num_ver * width_in_bytes, stdout);
                         memset(planes, 0, num_ver * width_in_bytes);
@@ -406,9 +418,9 @@ void SendPlanesData(cups_page_header2_t* header)
     }
     else
     {
-        if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
+        if ((current_line && inside_band_counter == 255) || (header->cupsHeight - 1 == current_line))
         {
-            printf("\x1B$0R");
+            std::cout << "\x1B$0R" << std::endl;
             pwrite_int_start(i_plane_size / 4 + 10);
 
             pwrite_int(header->cupsWidth);
@@ -418,14 +430,14 @@ void SendPlanesData(cups_page_header2_t* header)
             pwrite_int(i_real_plane_size);
             pwrite_int(i_plane_size);
             pwrite_int(0);
-            pwrite_int(y - 255);
+            pwrite_int(current_line - 255);
             pwrite_int(0);
             pwrite_int(1);
         }
         memcpy(planes + (num_ver - inside_band_counter - 1) * width_in_bytes,
                Lines,
                width_in_bytes);
-        if (y && inside_band_counter == 255)
+        if (current_line && inside_band_counter == 255)
         {
             fwrite(planes, 1, width_in_bytes << 8, stdout);
             memset(planes, 0, width_in_bytes << 8);
@@ -442,7 +454,7 @@ void SendPlanesData(cups_page_header2_t* header)
         }
         else
         {
-            if (header->cupsHeight - 1 == y)
+            if (header->cupsHeight - 1 == current_line)
             {
                 fwrite(planes, 1, num_ver * width_in_bytes, stdout);
                 memset(planes, 0, num_ver * width_in_bytes);
@@ -454,84 +466,100 @@ void SendPlanesData(cups_page_header2_t* header)
 
 char* get_time_string(char* output_buffer)
 {
-    char       time_buffer[15] = { 0 };
-    time_t     current_time    = time(NULL);
-    struct tm* local_time      = localtime(&current_time);
+    std::array<char, 15> time_buffer  = {};
+    time_t               current_time = time(nullptr);
+    struct tm*           local_time   = localtime(&current_time);
 
-    strftime(time_buffer, sizeof(time_buffer), "%Y%m%d%H%M%S", local_time);
-    return strncpy(output_buffer, time_buffer, sizeof(time_buffer) - 1);
+    strftime(
+        time_buffer.data(), time_buffer.size(), "%Y%m%d%H%M%S", local_time);
+    return strncpy(output_buffer, time_buffer.data(), time_buffer.size() - 1);
 }
 
 /*
  * usage rastertopcl job-id user title copies options [raster_file]
  * cups_raster_t *ras;                Raster stream for printing
  */
-int rastertokpsl(cups_raster_t* raster_stream,
-                 const char*    user_name,
-                 const char*    job_title,
-                 int            copies_number,
-                 const char*    printing_options)
+std::size_t rastertokpsl(cups_raster_t* raster_stream,
+                         const char*    user_name,
+                         const char*    job_title,
+                         int            copies_number,
+                         const char*    printing_options)
 {
     cups_page_header2_t header; /* Page header from file */
 
-    sigset(SIGTERM, cancel_job);
+    signal(SIGTERM, cancel_job);
 
-    cups_option_t* options = NULL;
+    cups_option_t* options = nullptr;
     const int num_options  = cupsParseOptions(printing_options, 0, &options);
 
     current_page = 0;
 
     while (cupsRasterReadHeader2(raster_stream, &header))
     {
-        const char* value = NULL;
+        const char* value = nullptr;
 
         ++current_page;
 
         vert_flag = 1;
         if (current_page == 1)
         {
-
             /*
              * Setup job in the raster read circle - for setup needs data from
              * header!
              */
 
-            printf(
-                "%c%c%c%c%c%c%c%c", 'L', 'S', 'P', 'K', '\x1B', '$', '0', 'J');
+            std::cout << "LSPK" << '\x1B' << "$0J" << std::endl;
             pwrite_int_start_doc('\r');
 
-            UTF16 buffer[64];
-            memset(&buffer, 0, sizeof(buffer));
-            UTF16*           pbuffer = (UTF16*)&buffer;
-            const UTF8*      parg    = (UTF8*)user_name; // argv[2];
-            ConversionResult res     = ConvertUTF8toUTF16(&parg,
-                                                      parg + strlen(user_name),
-                                                      &pbuffer,
-                                                      pbuffer + sizeof(buffer),
-                                                      strictConversion);
-            fwrite(&buffer, 2, 16, stdout);
+            constexpr auto get_utf16_buffer = [](std::string_view input_string)
+            {
+                std::array<UTF16, 64> output_buffer{};
+                auto*                 source_to_start = (UTF16*)&output_buffer;
+                const auto* target_start = (const UTF8*)input_string.data();
+                ConversionResult conversion_result =
+                    ConvertUTF8toUTF16(&target_start,
+                                       target_start + input_string.length(),
+                                       &source_to_start,
+                                       source_to_start + output_buffer.size(),
+                                       strictConversion);
+                assert(conversion_result == conversionOK);
+                return output_buffer;
+            };
 
-            char buf_time[14];
+            const auto utf16_user_name = get_utf16_buffer(user_name);
+            fwrite(&utf16_user_name, 2, 16, stdout);
+
+            std::string_view buf_time;
             get_time_string((char*)&buf_time);
-            fwrite(&buf_time, 1, sizeof(buf_time), stdout);
+            fwrite(&buf_time, 1, buf_time.length(), stdout);
             pwrite_short(0);
 
             value = cupsGetOption("CaBrightness", num_options, options);
             if (value)
-                light[0] = -atoi(value);
+            {
+                light[0] = -std::atoi(value);
+            }
             else
+            {
                 light[0] = 0;
-            fprintf(stdout, "INFO: CaBrightness=%d\n", light[0]);
+            }
+
+            std::cout << "INFO: CaBrightness=" << light[0] << '\n';
             value = cupsGetOption("CaContrast", num_options, options);
             if (value)
+            {
                 light[1] = atoi(value);
+            }
             else
+            {
                 light[1] = 0;
-            fprintf(stdout, "INFO: CaContrast=%d\n", light[1]);
+            }
+
+            std::cout << "INFO: CaContrast=" << light[1] << '\n';
 
             pdf_flag = 1;
-            fprintf(stdout, "INFO: pages=%d\n", pages);
-            fprintf(stdout, "INFO: pdf_flag=%d\n", pdf_flag);
+            std::cout << "INFO: pages=" << pages << '\n';
+            std::cout << "INFO: pdf_flag=" << pdf_flag << '\n';
 
             /*
              * N-Up printing places multiple document pages on a single printed
@@ -541,20 +569,14 @@ int rastertokpsl(cups_raster_t* raster_stream,
 
             nup = 1;
 
-            fprintf(stderr, "INFO: nup=%d\n", nup);
+            std::cerr << "INFO: nup=" << nup << '\n';
 
-            printf("\x1B$0D");
+            std::cout << "\x1B$0D" << std::endl;
+
             pwrite_int_start(16);
 
-            memset(&buffer, 0, sizeof(buffer));
-            pbuffer = (UTF16*)&buffer;
-            parg    = (UTF8*)job_title;
-            res     = ConvertUTF8toUTF16(&parg,
-                                     parg + strlen(job_title),
-                                     &pbuffer,
-                                     pbuffer + sizeof(buffer),
-                                     lenientConversion);
-            fwrite(&buffer, 2, 0x20, stdout);
+            const auto utf16_job_title = get_utf16_buffer(job_title);
+            fwrite(&utf16_job_title, 2, 0x20, stdout);
 
             /*
              * Multiple Copies, normally not collated
@@ -567,12 +589,12 @@ int rastertokpsl(cups_raster_t* raster_stream,
                 collate       = 1;
                 copies_number = 1;
             }
-            printf("\x1B$0C");
+            std::cout << "\x1B$0C" << std::endl;
             pwrite_int_start(1);
             pwrite_short(copies_number);
             pwrite_short(collate);
 
-            printf("\x1B$0S");
+            std::cout << "\x1B$0S" << std::endl;
             pwrite_int_start(2);
             pwrite_short(header.MediaPosition);
             int duplex = 0;
@@ -580,10 +602,6 @@ int rastertokpsl(cups_raster_t* raster_stream,
             if (header.Duplex)
             {
                 duplex = header.Tumble + header.Duplex;
-            }
-            else
-            {
-                duplex = 0;
             }
 
             pwrite_short(duplex);
@@ -594,15 +612,17 @@ int rastertokpsl(cups_raster_t* raster_stream,
             const int engine_speed = value && !strcmp(value, "On");
             pwrite_short(engine_speed);
 
-            fprintf(stderr, "INFO: Duplex=%d\n", duplex);
-            fprintf(stderr, "INFO: Feeding=%d\n", feeding);
-            fprintf(stderr, "INFO: EngineSpeed=%d\n", engine_speed);
+            std::cerr << "INFO: duplex=" << duplex << '\n';
+            std::cerr << "INFO: feeding=" << feeding << '\n';
+            std::cerr << "INFO: engine_speed=" << engine_speed << '\n';
+
+            std::cout << "\x1B$0G" << std::endl;
+            pwrite_int_start(3);
+            value = cupsGetOption("Resolution", num_options, options);
 
             int w_resolution = 600;
             int h_resolution = 600;
-            printf("\x1B$0G");
-            pwrite_int_start(3);
-            value = cupsGetOption("Resolution", num_options, options);
+
             if (value && !strcmp(value, "300dpi"))
             {
                 h_resolution = 300;
@@ -637,10 +657,6 @@ int rastertokpsl(cups_raster_t* raster_stream,
         header.cupsCompression  = 1;
         header.Orientation      = Orientation;
 
-        /*
-         * Start the page...
-         */
-
         start_page(&header);
 
         num_ver         = 256;
@@ -650,22 +666,18 @@ int rastertokpsl(cups_raster_t* raster_stream,
          * Loop for each line on the page...
          */
 
-        for (y = 0; y < header.cupsHeight; ++y)
+        for (current_line = 0; current_line < header.cupsHeight; ++current_line)
         {
-            /*
-             * Print progress...
-             */
-
-            if ((y & 0x3FF) == 0)
+            if ((current_line & 0x3FF) == 0)
             {
+                const uint32_t job_media_progress = 100 * current_line / header.cupsHeight;
                 _cupsLangPrintFilter(stdout,
                                      "INFO",
                                      "Printing page %d, %u%% complete.",
                                      current_page,
-                                     100 * y / header.cupsHeight);
-                fprintf(stdout,
-                        "ATTR: job-media-progress=%u\n",
-                        100 * y / header.cupsHeight);
+                                     job_media_progress);
+
+                std::cout << "ATTR: job-media-progress=" << job_media_progress;
             }
 
             /*
@@ -676,8 +688,8 @@ int rastertokpsl(cups_raster_t* raster_stream,
                     raster_stream, next_lines, header.cupsBytesPerLine) < 1)
                 break;
 
-            inside_band_counter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);
-            if (vert_flag && header.cupsHeight - y <= 0xFF)
+            inside_band_counter = LOBYTE(current_line + (current_line >> 31 >> 24)) - (current_line >> 31 >> 24);
+            if (vert_flag && header.cupsHeight - current_line <= 0xFF)
                 vert_flag = 0;
 
             /*
@@ -685,21 +697,21 @@ int rastertokpsl(cups_raster_t* raster_stream,
              */
 
             memcpy(Lines, next_lines, header.cupsBytesPerLine);
-            SendPlanesData(&header);
+            send_planes_data(&header);
         }
     }
 
     // last page end
     end_page(1);
 
-    printf("\x1B$0E");
+    std::cout << "\x1B$0E" << std::endl;
     pwrite_int_start(0);
 
     /*
      * Shutdown the printer...
      */
 
-    printf("\x1B$0T");
+    std::cout << "\x1B$0T" << std::endl;
     pwrite_int_start(0);
 
     return current_page;

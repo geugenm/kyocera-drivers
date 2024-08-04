@@ -68,7 +68,7 @@ int main(int argc, const char** argv)
     const char* job_title        = argv[3];
     const char* printing_options = argv[5];
 
-    const int32_t pages_number = rastertokpsl(cups_printing_raster_stream,
+    const size_t pages_number = rastertokpsl(cups_printing_raster_stream,
                                                user_name,
                                                job_title,
                                                copies_number,
