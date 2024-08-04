@@ -9,16 +9,21 @@
 /// filters and provides functions to process raster data from CUPS,
 /// convert it to PCL-XL, and handle printing operations.
 
-#include <stdio.h>
-#include <wchar.h>
+#include <cstdio>
+#include <cwchar>
 
+#include <cups/raster.h>
 #include <cups/versioning.h>
 
 // <cups/language-private.h>
-extern int _cupsLangPrintFilter(FILE*       file_to_write_to,
-                                const char* non_localized_msg_prefix,
-                                const char* message,
-                                ...) _CUPS_FORMAT(3, 4) _CUPS_PRIVATE;
+extern "C"
+{
+    extern int _cupsLangPrintFilter(FILE*       file_to_write_to,
+                                    const char* non_localized_msg_prefix,
+                                    const char* message,
+                                    ...) _CUPS_FORMAT(3, 4) _CUPS_PRIVATE;
+
+}
 // end <cups/language-private.h>
 
 void start_page(cups_page_header2_t* page_header);

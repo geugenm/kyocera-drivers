@@ -5,8 +5,9 @@
 extern "C"
 {
 #include <cups/raster.h>
-#include "rastertokpsl.h"
 }
+
+#include "rastertokpsl.hxx"
 
 
 /// @usage rastertokpsl job-id user title copies options [raster_file]

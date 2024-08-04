@@ -1,7 +1,11 @@
+#include <cmath>
+#include <csignal>
 #include <fcntl.h>
-#include <math.h>
-#include <signal.h>
+#include <iostream>
+#include <unordered_map>
 
+extern "C"
+{
 #include <cups/cups.h>
 #include <cups/raster.h>
 
@@ -9,7 +13,9 @@
 #include <jbig.h>
 
 #include "halfton.h"
-#include "rastertokpsl.h"
+}
+
+#include "rastertokpsl.hxx"
 
 #define LOBYTE(w) (unsigned char)(w)
 #define HIBYTE(w) (unsigned char)(((unsigned short)(w) >> 8) & 0xFF)
@@ -33,7 +39,7 @@ unsigned      current_page;
 int           pages;
 int           pdf_flag;
 cups_orient_t Orientation;
-const char*   paper_size_name;
+std::string_view  paper_size_name;
 
 int nup;
 
@@ -61,13 +67,103 @@ unsigned y; /* Current line */
 unsigned f_write_j_big_header;
 unsigned compressed_length;
 
+void print_page_header_info(const cups_page_header2_t* page_header)
+{
+    std::cout << "INFO: cupsHeight=" << page_header->cupsHeight << " (0x"
+              << std::hex << std::uppercase << page_header->cupsHeight << ")"
+              << std::dec << std::endl;
+
+    std::cout << "INFO: cupsWidth=" << page_header->cupsWidth << " (0x"
+              << std::hex << std::uppercase << page_header->cupsWidth << ") "
+              << " (0x" << (page_header->cupsWidth >> 3) << ")" << std::dec
+              << std::endl;
+
+    std::cout << "INFO: width_in_bytes=" << width_in_bytes << " (0x" << std::hex
+              << std::uppercase << width_in_bytes << ")" << std::dec
+              << std::endl;
+
+    std::cout << "INFO: i_real_plane_size=" << i_real_plane_size << " (0x"
+              << std::hex << std::uppercase << i_real_plane_size << ")"
+              << std::dec << std::endl;
+
+    std::cout << "INFO: i_plane_size=" << i_plane_size << " (0x" << std::hex
+              << std::uppercase << i_plane_size << ")" << std::dec << std::endl;
+
+    std::cout << "INFO: i_plane_size_8=" << i_plane_size_8 << " (0x" << std::hex
+              << std::uppercase << i_plane_size_8 << ")" << std::dec
+              << std::endl;
+}
+
+enum class page_size
+{
+    EnvMonarch = 1,
+    Env10,
+    EnvDL,
+    EnvC5,
+    Executive,
+    Letter,
+    Legal,
+    A4,
+    B5,
+    A3,
+    B4,
+    Tabloid,
+    A5,
+    A6,
+    B6,
+    Env9,
+    EnvPersonal,
+    ISOB5,
+    EnvC4 = 30,
+    OficioII = 33,
+    P16K = 40,
+    Statement = 50,
+    Folio = 51,
+    OficioMX = 42,
+    Unknown = 19
+};
+
+page_size get_page_size_enum(const std::string_view& paper_size_name) {
+    static const std::unordered_map<std::string_view, page_size> paperSizeMap = {
+        {"EnvMonarch", page_size::EnvMonarch},
+        {"Env10", page_size::Env10},
+        {"EnvDL", page_size::EnvDL},
+        {"EnvC5", page_size::EnvC5},
+        {"Executive", page_size::Executive},
+        {"Letter", page_size::Letter},
+        {"Legal", page_size::Legal},
+        {"A4", page_size::A4},
+        {"B5", page_size::B5},
+        {"A3", page_size::A3},
+        {"B4", page_size::B4},
+        {"Tabloid", page_size::Tabloid},
+        {"A5", page_size::A5},
+        {"A6", page_size::A6},
+        {"B6", page_size::B6},
+        {"Env9", page_size::Env9},
+        {"EnvPersonal", page_size::EnvPersonal},
+        {"ISOB5", page_size::ISOB5},
+        {"EnvC4", page_size::EnvC4},
+        {"OficioII", page_size::OficioII},
+        {"P16K", page_size::P16K},
+        {"Statement", page_size::Statement},
+        {"Folio", page_size::Folio},
+        {"OficioMX", page_size::OficioMX}
+    };
+
+    auto it = paperSizeMap.find(paper_size_name);
+    return (it != paperSizeMap.end()) ? it->second : page_size::Unknown;
+}
+
 void start_page(cups_page_header2_t* page_header)
 {
-    signed short orientation1, orientation2;
-    signed short pageSizeEnum;
+    int16_t orientation1;
+    int16_t orientation2;
+    int16_t pageSizeEnum;
 
     pageSizeEnum = 0;
-    switch ((int)page_header->Orientation)
+    switch (const auto header_orientation =
+                static_cast<size_t>(page_header->Orientation))
     {
         case 5:
             orientation1 = 1;
@@ -86,138 +182,20 @@ void start_page(cups_page_header2_t* page_header)
             orientation2 = 0;
             break;
     }
-    if (paper_size_name)
+
+    if (!paper_size_name.empty())
     {
-        if (!strcmp(paper_size_name, "EnvMonarch"))
-        {
-            pageSizeEnum = 1;
-        }
-        else if (!strcmp(paper_size_name, "Env10"))
-        {
-            pageSizeEnum = 2;
-        }
-        else if (!strcmp(paper_size_name, "EnvDL"))
-        {
-            pageSizeEnum = 3;
-        }
-        else if (!strcmp(paper_size_name, "EnvC5"))
-        {
-            pageSizeEnum = 4;
-        }
-        else if (!strcmp(paper_size_name, "Executive"))
-        {
-            pageSizeEnum = 5;
-        }
-        else if (!strcmp(paper_size_name, "Letter"))
-        {
-            pageSizeEnum = 6;
-        }
-        else if (!strcmp(paper_size_name, "Legal"))
-        {
-            pageSizeEnum = 7;
-        }
-        else if (!strcmp(paper_size_name, "A4"))
-        {
-            pageSizeEnum = 8;
-        }
-        else if (!strcmp(paper_size_name, "B5"))
-        {
-            pageSizeEnum = 9;
-        }
-        else if (!strcmp(paper_size_name, "A3"))
-        {
-            pageSizeEnum = 10;
-        }
-        else if (!strcmp(paper_size_name, "B4"))
-        {
-            pageSizeEnum = 11;
-        }
-        else if (!strcmp(paper_size_name, "Tabloid"))
-        {
-            pageSizeEnum = 12;
-        }
-        else if (!strcmp(paper_size_name, "A5"))
-        {
-            pageSizeEnum = 13;
-        }
-        else if (!strcmp(paper_size_name, "A6"))
-        {
-            pageSizeEnum = 14;
-        }
-        else if (!strcmp(paper_size_name, "B6"))
-        {
-            pageSizeEnum = 15;
-        }
-        else if (!strcmp(paper_size_name, "Env9"))
-        {
-            pageSizeEnum = 16;
-        }
-        else if (!strcmp(paper_size_name, "EnvPersonal"))
-        {
-            pageSizeEnum = 17;
-        }
-        else if (!strcmp(paper_size_name, "ISOB5"))
-        {
-            pageSizeEnum = 18;
-        }
-        else if (!strcmp(paper_size_name, "EnvC4"))
-        {
-            pageSizeEnum = 30;
-        }
-        else if (!strcmp(paper_size_name, "OficioII"))
-        {
-            pageSizeEnum = 33;
-        }
-        else if (!strcmp(paper_size_name, "P16K"))
-        {
-            pageSizeEnum = 40;
-        }
-        else if (!strcmp(paper_size_name, "Statement"))
-        {
-            pageSizeEnum = 50;
-        }
-        else if (!strcmp(paper_size_name, "Folio"))
-        {
-            pageSizeEnum = 51;
-        }
-        else if (!strcmp(paper_size_name, "OficioMX"))
-        {
-            pageSizeEnum = 42;
-        }
-        else
-        {
-            pageSizeEnum = 19;
-        }
+        pageSizeEnum = static_cast<int16_t>(
+            static_cast<int>(get_page_size_enum(paper_size_name)));
     }
+
     width_in_bytes = (unsigned)floor(
         32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0));
     i_real_plane_size = width_in_bytes << 8;
     i_plane_size      = i_real_plane_size;
     i_plane_size_8    = i_plane_size * 8;
-    fprintf(stderr, "INFO: start_page()\n");
-    fprintf(stderr,
-            "INFO: cupsHeight=%d(0x%X)\n",
-            page_header->cupsHeight,
-            page_header->cupsHeight);
-    fprintf(stderr,
-            "INFO: cupsWidth=%d(0x%X) 0x%X\n",
-            page_header->cupsWidth,
-            page_header->cupsWidth,
-            page_header->cupsWidth >> 3);
-    fprintf(stderr,
-            "INFO: width_in_bytes=%d(0x%X)\n",
-            width_in_bytes,
-            width_in_bytes);
-    fprintf(stderr,
-            "INFO: i_real_plane_size=%d(0x%X)\n",
-            i_real_plane_size,
-            i_real_plane_size);
-    fprintf(
-        stderr, "INFO: i_plane_size=%d(0x%X)\n", i_plane_size, i_plane_size);
-    fprintf(stderr,
-            "INFO: i_plane_size_8=%d(0x%X)\n",
-            i_plane_size_8,
-            i_plane_size_8);
+
+    print_page_header_info(page_header);
 
     planes = (unsigned char*)malloc(i_plane_size);
     memset(planes, 0, i_plane_size);
@@ -637,8 +615,8 @@ int rastertokpsl(cups_raster_t* raster_stream,
             pwrite_short(32);
             pwrite_short(1 << 8);
 
-            paper_size_name = cupsGetOption("PageSize", num_options, options);
-            if (!paper_size_name)
+            paper_size_name = cupsGetOption("page_size", num_options, options);
+            if (!paper_size_name.empty())
                 paper_size_name = cupsGetOption("media", num_options, options);
 
             value =
