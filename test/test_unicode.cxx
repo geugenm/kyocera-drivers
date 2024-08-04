@@ -1,26 +1,26 @@
 #include <array>
-
-#include <cstring>
-#include <iostream>
 #include <cassert>
+#include <iostream>
 
 extern "C"
 {
 #include "ConvertUTF.h"
 }
 
-int convert_text(char* text, int buf_len, char* message)
+int convert_text(std::string_view text,
+                 int              buffer_length,
+                 std::string_view message)
 {
     std::array<UTF16, 64> buffer{};
 
-    // normal ascii convert
-    const UTF8*      parg              = (const UTF8*)text;
-    UTF16*           pbuffer           = (UTF16*)&buffer;
-    ConversionResult conversion_result = ConvertUTF8toUTF16(&parg,
-                                                            parg + strlen(text),
-                                                            &pbuffer,
-                                                            pbuffer + buf_len,
-                                                            strictConversion);
+    const UTF8*            source_to_start = (const UTF8*)(text.data());
+    UTF16*                 target_start    = (UTF16*)&buffer;
+    const ConversionResult conversion_result =
+        ConvertUTF8toUTF16(&source_to_start,
+                           source_to_start + text.length(),
+                           &target_start,
+                           target_start + buffer_length,
+                           strictConversion);
 
     std::cout << "Info " << message
               << ": conversion result: " << conversion_result << std::endl;
