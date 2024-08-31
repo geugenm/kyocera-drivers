@@ -3,7 +3,9 @@
 #include <cmath>
 #include <csignal>
 #include <fcntl.h>
+#include <format>
 #include <iostream>
+#include <source_location>
 #include <unordered_map>
 
 #include <cups/cups.h>
@@ -29,20 +31,44 @@ extern "C"
 }
 // end <cups/language-private.h>
 
-#define LOBYTE(w) (unsigned char)(w)
-#define HIBYTE(w) (unsigned char)(((unsigned short)(w) >> 8) & 0xFF)
+constexpr unsigned char LOBYTE(unsigned short w) noexcept
+{
+    return static_cast<unsigned char>(w);
+}
 
-#define FORMAT_SHORT "%c%c"
-#define FORMAT_INT "%c%c%c%c"
-#define FORMAT_INT_START "%c%c%c%c@@@@"
-#define FORMAT_INT_START_DOC "%c%c%c%c@@@@0100"
-#define pwrite_short(n) printf(FORMAT_SHORT, LOBYTE((n)), HIBYTE((n)))
-#define pwrite_int_f(f, n)                                                     \
-    printf((f), LOBYTE((n)), HIBYTE((n)), LOBYTE((n >> 16)), HIBYTE((n >> 16)))
+constexpr unsigned char HIBYTE(unsigned short w) noexcept
+{
+    return static_cast<unsigned char>((w >> 8) & 0xFF);
+}
 
-#define pwrite_int(n) pwrite_int_f((FORMAT_INT), (n))
-#define pwrite_int_start(n) pwrite_int_f((FORMAT_INT_START), (n))
-#define pwrite_int_start_doc(n) pwrite_int_f((FORMAT_INT_START_DOC), (n))
+void pwrite_short(unsigned short n)
+{
+    constexpr const char* FORMAT_SHORT = "%c%c";
+    std::printf(FORMAT_SHORT, LOBYTE(n), HIBYTE(n));
+}
+
+void pwrite_int_f(const char* format, unsigned int n)
+{
+    std::printf(format, LOBYTE(n), HIBYTE(n), LOBYTE(n >> 16), HIBYTE(n >> 16));
+}
+
+void pwrite_int(unsigned int n)
+{
+    constexpr const char* FORMAT_INT = "%c%c%c%c";
+    pwrite_int_f(FORMAT_INT, n);
+}
+
+void pwrite_int_start(unsigned int n)
+{
+    constexpr const char* FORMAT_INT_START = "%c%c%c%c@@@@";
+    pwrite_int_f(FORMAT_INT_START, n);
+}
+
+void pwrite_int_start_doc(unsigned int n)
+{
+    constexpr const char* FORMAT_INT_START_DOC = "%c%c%c%c@@@@0100";
+    pwrite_int_f(FORMAT_INT_START_DOC, n);
+}
 
 bool               vert_flag;
 std::array<int, 2> light;
@@ -251,16 +277,21 @@ void start_page(cups_page_header2_t* page_header)
 
 void end_page(int section_end)
 {
-    std::cerr << "INFO: end_page()\n";
+    constexpr std::source_location location = std::source_location::current();
+    std::cerr << location.function_name();
     std::cout << "\x1B$0F" << std::endl;
+
     pwrite_int_start(1);
-    std::cerr << "INFO: sectionEndFlag=" << section_end << std::endl;
+    std::cerr << "INFO: section_end_flag=" << section_end << std::endl;
     pwrite_int(section_end);
+
     fflush(stdout);
+
     free(planes);
     free(planes_8);
     free(Lines);
     free(next_lines);
+
     if (out_buffer != nullptr)
     {
         free(out_buffer);
@@ -276,7 +307,7 @@ void cancel_job([[maybe_unused]] const int signal)
 {
     for (size_t i = 0; i < 600; ++i)
     {
-        putchar(0);
+        putchar({});
     }
     end_page(1);
     shutdown_printer();
@@ -290,15 +321,11 @@ void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
         f_should_write_j_big_header = false;
         return;
     }
-    size_t               remaining_bytes = data_length;
-    unsigned char*       output_ptr      = out_buffer + compressed_length;
-    unsigned char const* input_ptr       = start;
 
-    while (remaining_bytes)
-    {
-        *output_ptr++ = *input_ptr++;
-        --remaining_bytes;
-    }
+    unsigned char*       output_ptr = out_buffer + compressed_length;
+    const unsigned char* input_ptr  = start;
+
+    memcpy(output_ptr, input_ptr, data_length);
 
     compressed_length += data_length;
 }
@@ -482,15 +509,16 @@ void send_planes_data(cups_page_header2_t* header)
     }
 }
 
-char* get_time_string(char* output_buffer)
+std::string get_time_string()
 {
-    std::array<char, 15> time_buffer  = {};
-    time_t               current_time = time(nullptr);
-    struct tm*           local_time   = localtime(&current_time);
+    std::array<char, 15> time_buffer{};
+    const std::time_t          now        = std::time(nullptr);
+    const std::tm*             local_time = std::localtime(&now);
 
-    strftime(
+    std::strftime(
         time_buffer.data(), time_buffer.size(), "%Y%m%d%H%M%S", local_time);
-    return strncpy(output_buffer, time_buffer.data(), time_buffer.size() - 1);
+
+    return std::string{ time_buffer.data(), 14 };
 }
 
 /*
@@ -639,9 +667,8 @@ void setup_first_page(const std::string_view&    user_name,
     const auto utf16_user_name = get_utf16_buffer(user_name);
     fwrite(&utf16_user_name, 2, 16, stdout);
 
-    std::string_view buf_time;
-    get_time_string((char*)&buf_time);
-    fwrite(&buf_time, 1, buf_time.length(), stdout);
+    std::string buf_time = get_time_string();
+    std::cout << get_time_string();
     pwrite_short(0);
 
     value = cupsGetOption("CaBrightness", options_number, options);
