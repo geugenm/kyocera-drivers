@@ -132,14 +132,15 @@ enum class page_size
     Unknown   = 19
 };
 
-void      setup_first_page(const std::string_view&    user_name,
-                           const std::string_view&    job_title,
-                           uint32_t                   copies_number,
-                           const std::string_view&    printing_options,
-                           const cups_page_header2_t& header,
-                           cups_option_t*             options,
-                           const int                  options_number,
-                           const char*                value);
+void setup_first_page(const std::string_view&    user_name,
+                      const std::string_view&    job_title,
+                      uint32_t                   copies_number,
+                      const std::string_view&    printing_options,
+                      const cups_page_header2_t& header,
+                      cups_option_t*             options,
+                      const int                  options_number,
+                      const char*                value);
+
 page_size get_page_size_enum(const std::string_view& size_name)
 {
     using enum page_size;
@@ -175,11 +176,9 @@ page_size get_page_size_enum(const std::string_view& size_name)
 
 void start_page(cups_page_header2_t* page_header)
 {
-    int16_t orientation1;
-    int16_t orientation2;
-    int16_t page_size_enum;
+    int16_t orientation1{};
+    int16_t orientation2{};
 
-    page_size_enum = 0;
     switch (static_cast<size_t>(page_header->Orientation))
     {
         case 5:
@@ -200,6 +199,7 @@ void start_page(cups_page_header2_t* page_header)
             break;
     }
 
+    int16_t page_size_enum = 0;
     if (!paper_size_name.empty())
     {
         page_size_enum = static_cast<int16_t>(
@@ -272,7 +272,7 @@ void shutdown_printer()
     std::cout << '\x1B' << 'E';
 }
 
-void cancel_job(int signal)
+void cancel_job([[maybe_unused]] const int signal)
 {
     for (size_t i = 0; i < 600; ++i)
     {
@@ -305,9 +305,6 @@ void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
 
 void send_planes_data(cups_page_header2_t* header)
 {
-    uint32_t v26;
-    uint32_t v27;
-
     if (header->cupsCompression)
     {
         memcpy(planes_8 + 8 * width_in_bytes * inside_band_counter,
@@ -351,8 +348,8 @@ void send_planes_data(cups_page_header2_t* header)
             jbg_enc_options(&encState, 0, 0, 256, 0, 0);
             jbg_enc_out(&encState);
             jbg_enc_free(&encState);
-            v26 = static_cast<uint32_t>(32 *
-                                        floor((compressed_length + 31) / 32.0));
+            const uint32_t v26 = static_cast<uint32_t>(
+                32 * floor((compressed_length + 31) / 32.0));
             if (i_plane_size >= v26)
             {
                 std::cout << "\x1B$0B" << std::endl;
@@ -370,13 +367,15 @@ void send_planes_data(cups_page_header2_t* header)
                 pwrite_int(current_line - 255);
                 pwrite_int(0);
                 pwrite_int(1);
+
+                uint32_t v27{};
                 if (compressed_length & 0x1F)
+                {
                     v27 = 32 - (((LOBYTE(compressed_length) +
                                   ((compressed_length >> 31) >> 27)) &
                                  0x1F) -
                                 ((compressed_length >> 31) >> 27));
-                else
-                    v27 = 0;
+                }
                 memset(out_buffer + compressed_length, 0, v27);
                 fwrite(out_buffer, 1, v27 + compressed_length, stdout);
                 memset(out_buffer, 0, 0x100000);
