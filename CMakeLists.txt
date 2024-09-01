@@ -24,3 +24,10 @@ if (BUILD_TESTS)
     include(CTest)
     add_subdirectory(test)
 endif ()
+
+# todo: make main.cxx work without wrapper
+install(TARGETS rastertokpsl
+        RUNTIME DESTINATION /usr/lib/cups/filter
+)
+
+install(FILES ppd/English/*.ppd DESTINATION /usr/share/cups/model/Kyocera)

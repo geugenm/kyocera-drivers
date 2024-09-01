@@ -1,15 +1,3 @@
-add_custom_target(build_docs_script
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/build_docs.sh
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Running ${CMAKE_CURRENT_SOURCE_DIR}/build_docs.sh"
-)
-
-add_custom_target(build_script
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/build.sh
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Running ${CMAKE_CURRENT_SOURCE_DIR}/build.sh"
-)
-
 add_custom_target(fetch_drivers_script
         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/fetch_drivers.sh
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
