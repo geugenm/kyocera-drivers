@@ -25,9 +25,4 @@ if (BUILD_TESTS)
     add_subdirectory(ctest)
 endif ()
 
-install(TARGETS rastertokpsl
-        ARCHIVE DESTINATION /usr/lib/cups/filter
-        RUNTIME DESTINATION /usr/lib/cups/filter
-)
-
-install(FILES ppd/English/*.ppd DESTINATION /usr/share/cups/model/Kyocera)
+add_subdirectory(ppd)

@@ -20,6 +20,8 @@ If the script encounters errors, check that the required directories (base_path,
 
 Make sure you have write permissions to the `/usr/share/cups/model/Kyocera` and `/usr/lib/cups/filter` directories.
 
+Make sure to use cmake presets to build the project.
+
 ## Reverse Engineering `rastertokps`
 
 This repository also includes resources for reverse engineering the rastertokps filter, a crucial component of the Kyocera printing process.
@@ -41,6 +43,10 @@ These resources are invaluable for:
 ### Disclaimer:
 
 Reverse engineering is a complex field, and the provided resources serve as a starting point for further analysis. The accuracy and completeness of the reconstructed C code are not guaranteed.
+
+## Uninstalling
+
+```sudo xargs rm < install_manifest.txt```
 
 ## License
 
