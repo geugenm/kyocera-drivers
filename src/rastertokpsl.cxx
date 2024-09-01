@@ -31,40 +31,44 @@ extern "C"
 }
 // end <cups/language-private.h>
 
-constexpr unsigned char LOBYTE(unsigned short w) noexcept
+constexpr unsigned char get_low_byte(unsigned short w) noexcept
 {
     return static_cast<unsigned char>(w);
 }
 
-constexpr unsigned char HIBYTE(unsigned short w) noexcept
+constexpr unsigned char get_high_byte(unsigned short w) noexcept
 {
     return static_cast<unsigned char>((w >> 8) & 0xFF);
 }
 
-void pwrite_short(unsigned short n)
+void write_short_as_bytes(unsigned short n)
 {
     constexpr const char* FORMAT_SHORT = "%c%c";
-    std::printf(FORMAT_SHORT, LOBYTE(n), HIBYTE(n));
+    std::printf(FORMAT_SHORT, get_low_byte(n), get_high_byte(n));
 }
 
 void pwrite_int_f(const char* format, unsigned int n)
 {
-    std::printf(format, LOBYTE(n), HIBYTE(n), LOBYTE(n >> 16), HIBYTE(n >> 16));
+    std::printf(format,
+                get_low_byte(n),
+                get_high_byte(n),
+                get_low_byte(n >> 16),
+                get_high_byte(n >> 16));
 }
 
-void pwrite_int(unsigned int n)
+void write_int_as_bytes(unsigned int n)
 {
     constexpr const char* FORMAT_INT = "%c%c%c%c";
     pwrite_int_f(FORMAT_INT, n);
 }
 
-void pwrite_int_start(unsigned int n)
+void write_int_with_suffix(unsigned int n)
 {
     constexpr const char* FORMAT_INT_START = "%c%c%c%c@@@@";
     pwrite_int_f(FORMAT_INT_START, n);
 }
 
-void pwrite_int_start_doc(unsigned int n)
+void write_int_with_documentation_suffix(unsigned int n)
 {
     constexpr const char* FORMAT_INT_START_DOC = "%c%c%c%c@@@@0100";
     pwrite_int_f(FORMAT_INT_START_DOC, n);
@@ -158,15 +162,6 @@ enum class page_size
     Unknown   = 19
 };
 
-void setup_first_page(const std::string_view&    user_name,
-                      const std::string_view&    job_title,
-                      uint32_t                   copies_number,
-                      const std::string_view&    printing_options,
-                      const cups_page_header2_t& header,
-                      cups_option_t*             options,
-                      const int                  options_number,
-                      const char*                value);
-
 page_size get_page_size_enum(const std::string_view& size_name)
 {
     using enum page_size;
@@ -225,15 +220,8 @@ void start_page(cups_page_header2_t* page_header)
             break;
     }
 
-    int16_t page_size_enum = 0;
-    if (!paper_size_name.empty())
-    {
-        page_size_enum = static_cast<int16_t>(
-            static_cast<int>(get_page_size_enum(paper_size_name)));
-    }
-
-    width_in_bytes = (unsigned)floor(
-        32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0));
+    width_in_bytes = static_cast<unsigned>(floor(
+        32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0)));
     i_real_plane_size = width_in_bytes << 8;
     i_plane_size      = i_real_plane_size;
     i_plane_size_8    = i_plane_size * 8;
@@ -253,9 +241,9 @@ void start_page(cups_page_header2_t* page_header)
     memset(out_buffer, 0, 0x100000);
 
     std::cout << "\x1B$0P" << std::endl;
-    pwrite_int_start(3);
-    pwrite_short(orientation1);
-    pwrite_short(orientation2);
+    write_int_with_suffix(3);
+    write_short_as_bytes(orientation1);
+    write_short_as_bytes(orientation2);
 
     const auto get_page_metric =
         [&page_header](const std::size_t metric_index) -> uint16_t
@@ -269,21 +257,29 @@ void start_page(cups_page_header2_t* page_header)
 
     std::cerr << "INFO: metric width = " << metric_width
               << ", metric height = " << metric_height << std::endl;
-    pwrite_short(metric_width);
-    pwrite_short(metric_height);
-    pwrite_short(page_size_enum);
-    pwrite_short(page_header->cupsMediaType);
+    write_short_as_bytes(metric_width);
+    write_short_as_bytes(metric_height);
+
+    int16_t selected_page_size = 0;
+    if (!paper_size_name.empty())
+    {
+        selected_page_size = static_cast<int16_t>(
+            static_cast<int>(get_page_size_enum(paper_size_name)));
+    }
+
+    write_short_as_bytes(selected_page_size);
+    write_short_as_bytes(page_header->cupsMediaType);
 }
 
-void end_page(int section_end)
+void end_page(const int section_end)
 {
     constexpr std::source_location location = std::source_location::current();
     std::cerr << location.function_name();
     std::cout << "\x1B$0F" << std::endl;
 
-    pwrite_int_start(1);
+    write_int_with_suffix(1);
     std::cerr << "INFO: section_end_flag=" << section_end << std::endl;
-    pwrite_int(section_end);
+    write_int_as_bytes(section_end);
 
     fflush(stdout);
 
@@ -292,7 +288,7 @@ void end_page(int section_end)
     free(Lines);
     free(next_lines);
 
-    if (out_buffer != nullptr)
+    if (out_buffer)
     {
         free(out_buffer);
     }
@@ -307,7 +303,7 @@ void cancel_job([[maybe_unused]] const int signal)
 {
     for (size_t i = 0; i < 600; ++i)
     {
-        putchar({});
+        std::cout << '\n';
     }
     end_page(1);
     shutdown_printer();
@@ -380,25 +376,25 @@ void send_planes_data(cups_page_header2_t* header)
             if (i_plane_size >= v26)
             {
                 std::cout << "\x1B$0B" << std::endl;
-                pwrite_int_start(v26 / 4 + 13);
-                pwrite_int(1 << 16);
-                pwrite_int(header->cupsWidth);
-                pwrite_int(width_in_bytes);
-                pwrite_int(num_ver);
-                pwrite_int(num_vert_packed);
-                pwrite_int(1 << 8);
-                pwrite_int(0);
-                pwrite_int(compressed_length);
-                pwrite_int(v26);
-                pwrite_int(0);
-                pwrite_int(current_line - 255);
-                pwrite_int(0);
-                pwrite_int(1);
+                write_int_with_suffix(v26 / 4 + 13);
+                write_int_as_bytes(1 << 16);
+                write_int_as_bytes(header->cupsWidth);
+                write_int_as_bytes(width_in_bytes);
+                write_int_as_bytes(num_ver);
+                write_int_as_bytes(num_vert_packed);
+                write_int_as_bytes(1 << 8);
+                write_int_as_bytes(0);
+                write_int_as_bytes(compressed_length);
+                write_int_as_bytes(v26);
+                write_int_as_bytes(0);
+                write_int_as_bytes(current_line - 255);
+                write_int_as_bytes(0);
+                write_int_as_bytes(1);
 
                 uint32_t v27{};
                 if (compressed_length & 0x1F)
                 {
-                    v27 = 32 - (((LOBYTE(compressed_length) +
+                    v27 = 32 - (((get_low_byte(compressed_length) +
                                   ((compressed_length >> 31) >> 27)) &
                                  0x1F) -
                                 ((compressed_length >> 31) >> 27));
@@ -410,8 +406,8 @@ void send_planes_data(cups_page_header2_t* header)
                 memset(planes_8, 0, 8 * num_ver * width_in_bytes);
                 if (!vert_flag)
                 {
-                    num_ver = LOBYTE(header->cupsHeight +
-                                     (header->cupsHeight >> 31 >> 24)) -
+                    num_ver = get_low_byte(header->cupsHeight +
+                                           (header->cupsHeight >> 31 >> 24)) -
                               (header->cupsHeight >> 31 >> 24);
                     num_vert_packed   = 256;
                     i_real_plane_size = num_ver * width_in_bytes;
@@ -422,26 +418,27 @@ void send_planes_data(cups_page_header2_t* header)
             else
             {
                 std::cout << "\x1B$0R" << std::endl;
-                pwrite_int_start(i_plane_size / 4 + 10);
-                pwrite_int(header->cupsWidth);
-                pwrite_int(width_in_bytes);
-                pwrite_int(num_ver);
-                pwrite_int(num_vert_packed);
-                pwrite_int(i_real_plane_size);
-                pwrite_int(i_plane_size);
-                pwrite_int(0);
-                pwrite_int(current_line - 255);
-                pwrite_int(0);
-                pwrite_int(1);
+                write_int_with_suffix(i_plane_size / 4 + 10);
+                write_int_as_bytes(header->cupsWidth);
+                write_int_as_bytes(width_in_bytes);
+                write_int_as_bytes(num_ver);
+                write_int_as_bytes(num_vert_packed);
+                write_int_as_bytes(i_real_plane_size);
+                write_int_as_bytes(i_plane_size);
+                write_int_as_bytes(0);
+                write_int_as_bytes(current_line - 255);
+                write_int_as_bytes(0);
+                write_int_as_bytes(1);
                 if (current_line && inside_band_counter == 255)
                 {
                     fwrite(planes, 1, width_in_bytes << 8, stdout);
                     memset(planes, 0, width_in_bytes << 8);
                     if (!vert_flag)
                     {
-                        num_ver = LOBYTE(header->cupsHeight +
+                        num_ver =
+                            get_low_byte(header->cupsHeight +
                                          (header->cupsHeight >> 31 >> 24)) -
-                                  (header->cupsHeight >> 31 >> 24);
+                            (header->cupsHeight >> 31 >> 24);
                         num_vert_packed   = 256;
                         i_real_plane_size = num_ver * width_in_bytes;
                         i_plane_size      = num_ver * width_in_bytes;
@@ -466,18 +463,18 @@ void send_planes_data(cups_page_header2_t* header)
             (header->cupsHeight - 1 == current_line))
         {
             std::cout << "\x1B$0R" << std::endl;
-            pwrite_int_start(i_plane_size / 4 + 10);
+            write_int_with_suffix(i_plane_size / 4 + 10);
 
-            pwrite_int(header->cupsWidth);
-            pwrite_int(width_in_bytes);
-            pwrite_int(num_ver);
-            pwrite_int(num_vert_packed);
-            pwrite_int(i_real_plane_size);
-            pwrite_int(i_plane_size);
-            pwrite_int(0);
-            pwrite_int(current_line - 255);
-            pwrite_int(0);
-            pwrite_int(1);
+            write_int_as_bytes(header->cupsWidth);
+            write_int_as_bytes(width_in_bytes);
+            write_int_as_bytes(num_ver);
+            write_int_as_bytes(num_vert_packed);
+            write_int_as_bytes(i_real_plane_size);
+            write_int_as_bytes(i_plane_size);
+            write_int_as_bytes(0);
+            write_int_as_bytes(current_line - 255);
+            write_int_as_bytes(0);
+            write_int_as_bytes(1);
         }
         memcpy(planes + (num_ver - inside_band_counter - 1) * width_in_bytes,
                Lines,
@@ -488,8 +485,8 @@ void send_planes_data(cups_page_header2_t* header)
             memset(planes, 0, width_in_bytes << 8);
             if (!vert_flag)
             {
-                num_ver = LOBYTE(header->cupsHeight +
-                                 (header->cupsHeight >> 31 >> 24)) -
+                num_ver = get_low_byte(header->cupsHeight +
+                                       (header->cupsHeight >> 31 >> 24)) -
                           (header->cupsHeight >> 31 >> 24);
                 num_vert_packed   = 256;
                 i_real_plane_size = num_ver * width_in_bytes;
@@ -512,13 +509,161 @@ void send_planes_data(cups_page_header2_t* header)
 std::string get_time_string()
 {
     std::array<char, 15> time_buffer{};
-    const std::time_t          now        = std::time(nullptr);
-    const std::tm*             local_time = std::localtime(&now);
+    const std::time_t    now        = std::time(nullptr);
+    const std::tm*       local_time = std::localtime(&now);
 
     std::strftime(
         time_buffer.data(), time_buffer.size(), "%Y%m%d%H%M%S", local_time);
 
     return std::string{ time_buffer.data(), 14 };
+}
+
+void setup_first_page(const std::string_view&    user_name,
+                      const std::string_view&    job_title,
+                      uint32_t                   copies_number,
+                      const std::string_view&    printing_options,
+                      const cups_page_header2_t& header,
+                      cups_option_t*             options,
+                      const int                  options_number,
+                      const char*                value)
+{ /*
+   * Setup job in the raster read circle - for setup needs data from
+   * header!
+   */
+
+    std::cout << "LSPK" << '\x1B' << "$0J" << std::endl;
+    write_int_with_documentation_suffix('\r');
+
+    constexpr auto get_utf16_buffer = [](std::string_view input_string)
+    {
+        std::array<UTF16, 64> output_buffer{};
+        auto*                 source_to_start = (UTF16*)&output_buffer;
+        const auto*           target_start = (const UTF8*)input_string.data();
+        ConversionResult      conversion_result =
+            ConvertUTF8toUTF16(&target_start,
+                               target_start + input_string.length(),
+                               &source_to_start,
+                               source_to_start + output_buffer.size(),
+                               strictConversion);
+        assert(conversion_result == conversionOK);
+        return output_buffer;
+    };
+
+    const auto utf16_user_name = get_utf16_buffer(user_name);
+    fwrite(&utf16_user_name, 2, 16, stdout);
+
+    std::cout << get_time_string();
+    write_short_as_bytes(0);
+
+    value = cupsGetOption("CaBrightness", options_number, options);
+    if (value)
+    {
+        light[0] = -std::stoi(value);
+    }
+    else
+    {
+        light[0] = 0;
+    }
+
+    std::cerr << "INFO: CaBrightness=" << light[0] << '\n';
+    value = cupsGetOption("CaContrast", options_number, options);
+    if (value)
+    {
+        light[1] = std::stoi(value);
+    }
+    else
+    {
+        light[1] = 0;
+    }
+
+    std::cerr << "INFO: CaContrast=" << light[1] << '\n';
+    std::cerr << "INFO: pages=" << pages << '\n';
+
+    /*
+     * N-Up printing places multiple document pages on a single printed
+     * page CUPS supports 1, 2, 4, 6, 9, and 16-Up formats; the default
+     * format is 1-Up lp -o number-up=2 filename
+     */
+
+    std::cout << "\x1B$0D" << std::endl;
+
+    write_int_with_suffix(16);
+
+    const auto utf16_job_title = get_utf16_buffer(job_title);
+    fwrite(&utf16_job_title, 2, 0x20, stdout);
+
+    /*
+     * Multiple Copies, normally not collated
+     *   lp -n num-copies -o Collate=True filename
+     */
+
+    int collate = 0;
+    if (printing_options == " collate")
+    {
+        collate       = 1;
+        copies_number = 1;
+    }
+    std::cout << "\x1B$0C" << std::endl;
+    write_int_with_suffix(1);
+    write_short_as_bytes(copies_number);
+    write_short_as_bytes(collate);
+
+    std::cout << "\x1B$0S" << std::endl;
+    write_int_with_suffix(2);
+    write_short_as_bytes(header.MediaPosition);
+    int duplex = 0;
+
+    if (header.Duplex)
+    {
+        duplex = header.Tumble + header.Duplex;
+    }
+
+    write_short_as_bytes(duplex);
+    value             = cupsGetOption("Feeding", options_number, options);
+    const int feeding = value && !strcmp(value, "On");
+    write_short_as_bytes(feeding);
+    value = cupsGetOption("EngineSpeed", options_number, options);
+    const int engine_speed = value && !strcmp(value, "On");
+    write_short_as_bytes(engine_speed);
+
+    std::cerr << "INFO: duplex=" << duplex << '\n';
+    std::cerr << "INFO: feeding=" << feeding << '\n';
+    std::cerr << "INFO: engine_speed=" << engine_speed << '\n';
+
+    std::cout << "\x1B$0G" << std::endl;
+    write_int_with_suffix(3);
+    value = cupsGetOption("Resolution", options_number, options);
+
+    int w_resolution = 600;
+    int h_resolution = 600;
+
+    if (value && !strcmp(value, "300dpi"))
+    {
+        h_resolution = 300;
+        w_resolution = 300;
+    }
+    write_short_as_bytes(w_resolution);
+    write_short_as_bytes(h_resolution);
+    write_short_as_bytes(1);
+    write_short_as_bytes(1);
+    write_short_as_bytes(32);
+    write_short_as_bytes(1 << 8);
+
+    paper_size_name = cupsGetOption("page_size", options_number, options);
+    if (!paper_size_name.empty())
+    {
+        paper_size_name = cupsGetOption("media", options_number, options);
+    }
+
+    value = cupsGetOption("orientation-requested", options_number, options);
+
+    if (!value)
+    {
+        Orientation = {};
+        return;
+    }
+
+    Orientation = static_cast<cups_orient_t>(atoi(value));
 }
 
 /*
@@ -603,7 +748,7 @@ std::size_t rastertokpsl(cups_raster_t*   raster_stream,
                 break;
 
             inside_band_counter =
-                LOBYTE(current_line + (current_line >> 31 >> 24)) -
+                get_low_byte(current_line + (current_line >> 31 >> 24)) -
                 (current_line >> 31 >> 24);
             if (vert_flag && header.cupsHeight - current_line <= 0xFF)
                 vert_flag = false;
@@ -621,158 +766,14 @@ std::size_t rastertokpsl(cups_raster_t*   raster_stream,
     end_page(1);
 
     std::cout << "\x1B$0E" << std::endl;
-    pwrite_int_start(0);
+    write_int_with_suffix(0);
 
     /*
      * Shutdown the printer...
      */
 
     std::cout << "\x1B$0T" << std::endl;
-    pwrite_int_start(0);
+    write_int_with_suffix(0);
 
     return current_page;
-}
-
-void setup_first_page(const std::string_view&    user_name,
-                      const std::string_view&    job_title,
-                      uint32_t                   copies_number,
-                      const std::string_view&    printing_options,
-                      const cups_page_header2_t& header,
-                      cups_option_t*             options,
-                      const int                  options_number,
-                      const char*                value)
-{ /*
-   * Setup job in the raster read circle - for setup needs data from
-   * header!
-   */
-
-    std::cout << "LSPK" << '\x1B' << "$0J" << std::endl;
-    pwrite_int_start_doc('\r');
-
-    constexpr auto get_utf16_buffer = [](std::string_view input_string)
-    {
-        std::array<UTF16, 64> output_buffer{};
-        auto*                 source_to_start = (UTF16*)&output_buffer;
-        const auto*           target_start = (const UTF8*)input_string.data();
-        ConversionResult      conversion_result =
-            ConvertUTF8toUTF16(&target_start,
-                               target_start + input_string.length(),
-                               &source_to_start,
-                               source_to_start + output_buffer.size(),
-                               strictConversion);
-        assert(conversion_result == conversionOK);
-        return output_buffer;
-    };
-
-    const auto utf16_user_name = get_utf16_buffer(user_name);
-    fwrite(&utf16_user_name, 2, 16, stdout);
-
-    std::string buf_time = get_time_string();
-    std::cout << get_time_string();
-    pwrite_short(0);
-
-    value = cupsGetOption("CaBrightness", options_number, options);
-    if (value)
-    {
-        light[0] = -std::stoi(value);
-    }
-    else
-    {
-        light[0] = 0;
-    }
-
-    std::cout << "INFO: CaBrightness=" << light[0] << '\n';
-    value = cupsGetOption("CaContrast", options_number, options);
-    if (value)
-    {
-        light[1] = std::stoi(value);
-    }
-    else
-    {
-        light[1] = 0;
-    }
-
-    std::cout << "INFO: CaContrast=" << light[1] << '\n';
-
-    std::cout << "INFO: pages=" << pages << '\n';
-
-    /*
-     * N-Up printing places multiple document pages on a single printed
-     * page CUPS supports 1, 2, 4, 6, 9, and 16-Up formats; the default
-     * format is 1-Up lp -o number-up=2 filename
-     */
-
-    std::cout << "\x1B$0D" << std::endl;
-
-    pwrite_int_start(16);
-
-    const auto utf16_job_title = get_utf16_buffer(job_title);
-    fwrite(&utf16_job_title, 2, 0x20, stdout);
-
-    /*
-     * Multiple Copies, normally not collated
-     *   lp -n num-copies -o Collate=True filename
-     */
-
-    int collate = 0;
-    if (printing_options == " collate")
-    {
-        collate       = 1;
-        copies_number = 1;
-    }
-    std::cout << "\x1B$0C" << std::endl;
-    pwrite_int_start(1);
-    pwrite_short(copies_number);
-    pwrite_short(collate);
-
-    std::cout << "\x1B$0S" << std::endl;
-    pwrite_int_start(2);
-    pwrite_short(header.MediaPosition);
-    int duplex = 0;
-
-    if (header.Duplex)
-    {
-        duplex = header.Tumble + header.Duplex;
-    }
-
-    pwrite_short(duplex);
-    value             = cupsGetOption("Feeding", options_number, options);
-    const int feeding = value && !strcmp(value, "On");
-    pwrite_short(feeding);
-    value = cupsGetOption("EngineSpeed", options_number, options);
-    const int engine_speed = value && !strcmp(value, "On");
-    pwrite_short(engine_speed);
-
-    std::cerr << "INFO: duplex=" << duplex << '\n';
-    std::cerr << "INFO: feeding=" << feeding << '\n';
-    std::cerr << "INFO: engine_speed=" << engine_speed << '\n';
-
-    std::cout << "\x1B$0G" << std::endl;
-    pwrite_int_start(3);
-    value = cupsGetOption("Resolution", options_number, options);
-
-    int w_resolution = 600;
-    int h_resolution = 600;
-
-    if (value && !strcmp(value, "300dpi"))
-    {
-        h_resolution = 300;
-        w_resolution = 300;
-    }
-    pwrite_short(w_resolution);
-    pwrite_short(h_resolution);
-    pwrite_short(1);
-    pwrite_short(1);
-    pwrite_short(32);
-    pwrite_short(1 << 8);
-
-    paper_size_name = cupsGetOption("page_size", options_number, options);
-    if (!paper_size_name.empty())
-        paper_size_name = cupsGetOption("media", options_number, options);
-
-    value = cupsGetOption("orientation-requested", options_number, options);
-    if (value)
-        Orientation = (cups_orient_t)atoi(value);
-    else
-        Orientation = (cups_orient_t)0;
 }
