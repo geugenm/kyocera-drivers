@@ -1,6 +1,6 @@
 #pragma once
 
-/// @file rastertokpsl.h
+/// @file rastertokpsl.hxx
 ///
 /// @brief This header file defines the interface for converting raster data
 /// to HP PCL-XL (Printer Command Language - XL) format.

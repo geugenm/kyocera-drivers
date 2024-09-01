@@ -3,12 +3,7 @@
 #include <cstdint>
 #include <string>
 
-extern "C"
-{
-#include "halfton.h"
-}
-
-static constexpr std::size_t dither_table_size = 256;
+#include "halfton.hxx"
 
 static constexpr std::array<uint8_t, dither_table_size> expected_dither_table = {
     0x6E, 0x46, 0x4E, 0x76, 0x94, 0xBC, 0xB4, 0x8C, 0x6C, 0x44, 0x4C, 0x74,
@@ -39,6 +34,7 @@ void test_set_default_screen()
 {
     set_default_screen();
     const uint8_t *     obtained_raw_dither_table = get_current_dither_table();
+
     std::array<uint8_t, dither_table_size>  obtained_dither_table{};
     std::copy(obtained_raw_dither_table,
               obtained_raw_dither_table + dither_table_size,

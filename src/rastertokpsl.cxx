@@ -11,14 +11,13 @@
 #include <cups/cups.h>
 #include <cups/raster.h>
 
+#include "halfton.hxx"
 #include "rastertokpsl.hxx"
 
 extern "C"
 {
 #include <ConvertUTF.h>
 #include <jbig.h>
-
-#include "halfton.h"
 }
 
 // <cups/language-private.h>
@@ -74,7 +73,7 @@ void write_int_with_documentation_suffix(unsigned int n)
     pwrite_int_f(FORMAT_INT_START_DOC, n);
 }
 
-bool               vert_flag;
+bool               is_printing_vertical;
 std::array<int, 2> light;
 
 uint32_t         current_page;
@@ -90,7 +89,7 @@ uint8_t* Lines;
 
 int32_t inside_band_counter;
 
-// StartPage
+// start page
 uint32_t width_in_bytes;
 uint32_t i_real_plane_size;
 uint32_t i_plane_size;
@@ -101,7 +100,7 @@ uint8_t* planes;
 uint8_t* planes_8;
 uint8_t* out_buffer;
 
-// send_planes_data
+// send planes data
 uint32_t current_line;
 bool     f_should_write_j_big_header;
 uint32_t compressed_length;
@@ -220,8 +219,8 @@ void start_page(cups_page_header2_t* page_header)
             break;
     }
 
-    width_in_bytes = static_cast<unsigned>(floor(
-        32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0)));
+    width_in_bytes = static_cast<unsigned>(
+        floor(32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0)));
     i_real_plane_size = width_in_bytes << 8;
     i_plane_size      = i_real_plane_size;
     i_plane_size_8    = i_plane_size * 8;
@@ -404,7 +403,7 @@ void send_planes_data(cups_page_header2_t* header)
                 memset(out_buffer, 0, 0x100000);
                 memset(planes, 0, num_ver * width_in_bytes);
                 memset(planes_8, 0, 8 * num_ver * width_in_bytes);
-                if (!vert_flag)
+                if (!is_printing_vertical)
                 {
                     num_ver = get_low_byte(header->cupsHeight +
                                            (header->cupsHeight >> 31 >> 24)) -
@@ -433,7 +432,7 @@ void send_planes_data(cups_page_header2_t* header)
                 {
                     fwrite(planes, 1, width_in_bytes << 8, stdout);
                     memset(planes, 0, width_in_bytes << 8);
-                    if (!vert_flag)
+                    if (!is_printing_vertical)
                     {
                         num_ver =
                             get_low_byte(header->cupsHeight +
@@ -483,7 +482,7 @@ void send_planes_data(cups_page_header2_t* header)
         {
             fwrite(planes, 1, width_in_bytes << 8, stdout);
             memset(planes, 0, width_in_bytes << 8);
-            if (!vert_flag)
+            if (!is_printing_vertical)
             {
                 num_ver = get_low_byte(header->cupsHeight +
                                        (header->cupsHeight >> 31 >> 24)) -
@@ -506,7 +505,7 @@ void send_planes_data(cups_page_header2_t* header)
     }
 }
 
-std::string get_time_string()
+[[nodiscard]] std::string get_time_string()
 {
     std::array<char, 15> time_buffer{};
     const std::time_t    now        = std::time(nullptr);
@@ -515,9 +514,10 @@ std::string get_time_string()
     std::strftime(
         time_buffer.data(), time_buffer.size(), "%Y%m%d%H%M%S", local_time);
 
-    return std::string{ time_buffer.data(), 14 };
+    return { time_buffer.data(), 14 };
 }
 
+/// Setup job in the raster read circle - for setup needs data from header!
 void setup_first_page(const std::string_view&    user_name,
                       const std::string_view&    job_title,
                       uint32_t                   copies_number,
@@ -526,11 +526,7 @@ void setup_first_page(const std::string_view&    user_name,
                       cups_option_t*             options,
                       const int                  options_number,
                       const char*                value)
-{ /*
-   * Setup job in the raster read circle - for setup needs data from
-   * header!
-   */
-
+{
     std::cout << "LSPK" << '\x1B' << "$0J" << std::endl;
     write_int_with_documentation_suffix('\r');
 
@@ -664,45 +660,37 @@ void setup_first_page(const std::string_view&    user_name,
     }
 
     Orientation = static_cast<cups_orient_t>(atoi(value));
-}
-
-/*
- * usage rastertopcl job-id user title copies options [raster_file]
- * cups_raster_t *ras;                Raster stream for printing
- */
+};
 std::size_t rastertokpsl(cups_raster_t*   raster_stream,
                          std::string_view user_name,
                          std::string_view job_title,
                          uint32_t         copies_number,
                          std::string_view printing_options)
 {
-    cups_page_header2_t header; /* Page header from file */
-
     signal(SIGTERM, cancel_job);
 
-    cups_option_t* options = nullptr;
-    const int      options_number =
+    cups_option_t*     options = nullptr;
+    const std::int32_t options_number =
         cupsParseOptions(printing_options.data(), 0, &options);
 
     current_page = 0;
 
-    while (cupsRasterReadHeader2(raster_stream, &header))
+    cups_page_header2_t page_header_from_file;
+    while (cupsRasterReadHeader2(raster_stream, &page_header_from_file))
     {
-        const char* value = nullptr;
-
         ++current_page;
 
-        vert_flag = true;
+        is_printing_vertical = true;
         if (current_page == 1)
         {
             setup_first_page(user_name,
                              job_title,
                              copies_number,
                              printing_options,
-                             header,
+                             page_header_from_file,
                              options,
                              options_number,
-                             value);
+                             nullptr);
         }
 
         if (current_page > 1)
@@ -711,25 +699,22 @@ std::size_t rastertokpsl(cups_raster_t*   raster_stream,
             end_page(0);
         }
 
-        header.cupsBitsPerColor = 1;
-        header.cupsCompression  = 1;
-        header.Orientation      = Orientation;
+        page_header_from_file.cupsBitsPerColor = 1;
+        page_header_from_file.cupsCompression  = 1;
+        page_header_from_file.Orientation      = Orientation;
 
-        start_page(&header);
+        start_page(&page_header_from_file);
 
         num_ver         = 256;
         num_vert_packed = 256;
 
-        /*
-         * Loop for each line on the page...
-         */
-
-        for (current_line = 0; current_line < header.cupsHeight; ++current_line)
+        for (current_line = 0; current_line < page_header_from_file.cupsHeight;
+             ++current_line)
         {
             if ((current_line & 0x3FF) == 0)
             {
                 const uint32_t job_media_progress =
-                    100 * current_line / header.cupsHeight;
+                    100 * current_line / page_header_from_file.cupsHeight;
                 _cupsLangPrintFilter(stdout,
                                      "INFO",
                                      "Printing page %d, %u%% complete.",
@@ -739,39 +724,37 @@ std::size_t rastertokpsl(cups_raster_t*   raster_stream,
                 std::cout << "ATTR: job-media-progress=" << job_media_progress;
             }
 
-            /*
-             * Read a line of graphics...
-             */
-
-            if (cupsRasterReadPixels(
-                    raster_stream, next_lines, header.cupsBytesPerLine) < 1)
+            if (cupsRasterReadPixels(raster_stream,
+                                     next_lines,
+                                     page_header_from_file.cupsBytesPerLine) <
+                1)
+            {
                 break;
+            }
 
             inside_band_counter =
                 get_low_byte(current_line + (current_line >> 31 >> 24)) -
                 (current_line >> 31 >> 24);
-            if (vert_flag && header.cupsHeight - current_line <= 0xFF)
-                vert_flag = false;
 
-            /*
-             * Write it to the printer...
-             */
+            if (is_printing_vertical &&
+                page_header_from_file.cupsHeight - current_line <= 0xFF)
+            {
+                is_printing_vertical = false;
+            }
 
-            memcpy(Lines, next_lines, header.cupsBytesPerLine);
-            send_planes_data(&header);
+            std::cerr << "writing to the printer...";
+            memcpy(Lines, next_lines, page_header_from_file.cupsBytesPerLine);
+            send_planes_data(&page_header_from_file);
         }
     }
 
-    // last page end
+    std::cerr << "ending last page...";
     end_page(1);
 
     std::cout << "\x1B$0E" << std::endl;
     write_int_with_suffix(0);
 
-    /*
-     * Shutdown the printer...
-     */
-
+    std::cerr << "shutting down the printer...";
     std::cout << "\x1B$0T" << std::endl;
     write_int_with_suffix(0);
 
