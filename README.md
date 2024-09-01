@@ -1,8 +1,4 @@
-# Kyocera PPD Installer & revered `rastertokps`
-
-<div style="display: flex; justify-content: center;">
-  <img src="img/ghidra.png" alt="Image 1" style="width: 100px; height: 100px; margin: 0 10px;">
-</div>
+# Kyocera reverse engineered `rastertokps`
 
 ## Description
 
