@@ -1,6 +1,7 @@
 #include <array>
 #include <cassert>
 #include <iostream>
+#include <string_view>
 
 extern "C"
 {
@@ -44,4 +45,9 @@ void test_unicode()
     const int32_t utf8_source_is_larger_than_the_target =
         convert_text("exam_опсс", 8, "utf8 source > target");
     assert(utf8_source_is_larger_than_the_target == 2);
+}
+
+int main()
+{
+    test_unicode();
 }

@@ -45,3 +45,8 @@ void test_set_default_screen()
               obtained_dither_table.begin());
     assert(obtained_dither_table == expected_dither_table);
 }
+
+int main()
+{
+    test_set_default_screen();
+}
