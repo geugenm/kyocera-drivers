@@ -11,18 +11,19 @@
 
 std::vector<std::uint8_t> dither_table{};
 
-std::uint32_t dither_table_width;
-std::uint32_t dither_table_height;
-std::int32_t  dither_table_pitch;
+std::uint32_t dither_table_width  = 0;
+std::uint32_t dither_table_height = 0;
+std::int32_t  dither_table_pitch  = 0;
 
 std::uint8_t* get_current_dither_table()
 {
     return dither_table.data();
 }
 
-[[nodiscard]] std::uint8_t apply_transfer_function(std::uint8_t value,
-                                                   std::int32_t contrast,
-                                                   std::int32_t brightness)
+[[nodiscard]] std::uint8_t apply_transfer_function(
+    std::uint8_t        value,
+    const std::int32_t& contrast,
+    const std::int32_t& brightness)
 {
     if (contrast != 0)
     {
@@ -77,9 +78,9 @@ static constexpr std::array<std::uint8_t, dither_table_size>
         0x9D, 0xDD, 0xD5, 0x85
     };
 
-void set_dither_gray_table(const std::int8_t*  input_table,
-                           const std::uint32_t width,
-                           const std::uint32_t height)
+void set_dither_gray_table(const std::int8_t*   input_table,
+                           const std::uint32_t& width,
+                           const std::uint32_t& height)
 {
     dither_table.clear();
 
@@ -109,7 +110,7 @@ void set_dither_gray_table(const std::int8_t*  input_table,
 }
 
 [[nodiscard]] constexpr std::size_t get_line_bytes(
-    const std::int32_t width, const std::int32_t multiplier)
+    const std::int32_t& width, const std::int32_t& multiplier)
 {
     const std::int32_t totalBytes   = multiplier * width;
     const std::int32_t alignedBytes = (totalBytes + 31) & ~31;
@@ -141,12 +142,12 @@ void set_default_screen()
     set_dither_gray_table((std::int8_t*)&device_best_dither, 16, 16);
 }
 
-void halftone_dib_to_dib(std::uint8_t* source_planes8,
-                         std::uint8_t* destination_planes,
-                         std::size_t   image_width,
-                         std::size_t   num_rows,
-                         std::int32_t  contrast,
-                         std::int32_t  brightness)
+void halftone_dib_to_dib(std::uint8_t*       source_planes8,
+                         std::uint8_t*       destination_planes,
+                         const std::size_t&  image_width,
+                         const std::size_t&  num_rows,
+                         const std::int32_t& contrast,
+                         const std::int32_t& brightness)
 {
     if (dither_table.empty())
     {

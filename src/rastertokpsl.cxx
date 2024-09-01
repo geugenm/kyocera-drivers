@@ -30,23 +30,24 @@ extern "C"
 }
 // end <cups/language-private.h>
 
-constexpr unsigned char get_low_byte(unsigned short w) noexcept
+[[nodiscard]] constexpr std::uint8_t get_low_byte(
+    const std::uint16_t w) noexcept
 {
-    return static_cast<unsigned char>(w);
+    return static_cast<std::uint8_t>(w);
 }
 
-constexpr unsigned char get_high_byte(unsigned short w) noexcept
+[[nodiscard]] constexpr std::uint8_t get_high_byte(
+    const std::uint16_t w) noexcept
 {
-    return static_cast<unsigned char>((w >> 8) & 0xFF);
+    return static_cast<std::uint8_t>((w >> 8) & 0xFF);
 }
 
-void write_short_as_bytes(unsigned short n)
+void write_short_as_bytes(const std::uint16_t n)
 {
-    constexpr const char* FORMAT_SHORT = "%c%c";
-    std::printf(FORMAT_SHORT, get_low_byte(n), get_high_byte(n));
+    std::printf("%c%c", get_low_byte(n), get_high_byte(n));
 }
 
-void pwrite_int_f(const char* format, unsigned int n)
+void pwrite_int_f(const char* format, const std::uint32_t n)
 {
     std::printf(format,
                 get_low_byte(n),
@@ -55,55 +56,52 @@ void pwrite_int_f(const char* format, unsigned int n)
                 get_high_byte(n >> 16));
 }
 
-void write_int_as_bytes(unsigned int n)
+void write_int_as_bytes(const std::uint32_t n)
 {
-    constexpr const char* FORMAT_INT = "%c%c%c%c";
-    pwrite_int_f(FORMAT_INT, n);
+    pwrite_int_f("%c%c%c%c", n);
 }
 
-void write_int_with_suffix(unsigned int n)
+void write_int_with_suffix(const std::uint32_t n)
 {
-    constexpr const char* FORMAT_INT_START = "%c%c%c%c@@@@";
-    pwrite_int_f(FORMAT_INT_START, n);
+    pwrite_int_f("%c%c%c%c@@@@", n);
 }
 
-void write_int_with_documentation_suffix(unsigned int n)
+void write_int_with_documentation_suffix(const std::uint32_t n)
 {
-    constexpr const char* FORMAT_INT_START_DOC = "%c%c%c%c@@@@0100";
-    pwrite_int_f(FORMAT_INT_START_DOC, n);
+    pwrite_int_f("%c%c%c%c@@@@0100", n);
 }
 
 bool               is_printing_vertical;
 std::array<int, 2> light;
 
-uint32_t         current_page;
-int32_t          pages;
-cups_orient_t    Orientation;
-std::string_view paper_size_name;
+uint32_t         current_page    = 0;
+int32_t          pages           = 0;
+cups_orient_t    Orientation     = {};
+std::string_view paper_size_name = {};
 
-uint32_t num_ver;
-uint32_t num_vert_packed;
+uint32_t num_ver         = 0;
+uint32_t num_vert_packed = 0;
 
-uint8_t* next_lines;
-uint8_t* Lines;
+uint8_t* next_lines = nullptr;
+uint8_t* Lines      = nullptr;
 
-int32_t inside_band_counter;
+int32_t inside_band_counter = 0;
 
 // start page
-uint32_t width_in_bytes;
-uint32_t i_real_plane_size;
-uint32_t i_plane_size;
-uint32_t i_plane_size_8;
+uint32_t width_in_bytes    = 0;
+uint32_t i_real_plane_size = 0;
+uint32_t i_plane_size      = 0;
+uint32_t i_plane_size_8    = 0;
 
 // buffers
-uint8_t* planes;
-uint8_t* planes_8;
-uint8_t* out_buffer;
+uint8_t* planes     = nullptr;
+uint8_t* planes_8   = nullptr;
+uint8_t* out_buffer = nullptr;
 
 // send planes data
-uint32_t current_line;
-bool     f_should_write_j_big_header;
-uint32_t compressed_length;
+uint32_t current_line                = 0;
+bool     f_should_write_j_big_header = false;
+uint32_t compressed_length           = 0;
 
 void print_page_header_info(const cups_page_header2_t* page_header)
 {
@@ -219,24 +217,23 @@ void start_page(cups_page_header2_t* page_header)
             break;
     }
 
-    width_in_bytes = static_cast<unsigned>(
+    width_in_bytes = static_cast<std::uint32_t>(
         floor(32.0 * ceil((4 * ((page_header->cupsWidth + 31) >> 5)) / 32.0)));
     i_real_plane_size = width_in_bytes << 8;
     i_plane_size      = i_real_plane_size;
     i_plane_size_8    = i_plane_size * 8;
 
-    std::cerr << "INFO: start_page()\n";
     print_page_header_info(page_header);
 
-    planes = (unsigned char*)malloc(i_plane_size);
+    planes = (std::uint8_t*)malloc(i_plane_size);
     memset(planes, 0, i_plane_size);
-    planes_8 = (unsigned char*)malloc(i_plane_size_8);
+    planes_8 = (std::uint8_t*)malloc(i_plane_size_8);
     memset(planes_8, 0, i_plane_size_8);
-    Lines = (unsigned char*)malloc(8 * width_in_bytes);
+    Lines = (std::uint8_t*)malloc(8 * width_in_bytes);
     memset(Lines, 0, 8 * width_in_bytes);
-    next_lines = (unsigned char*)malloc(8 * width_in_bytes);
+    next_lines = (std::uint8_t*)malloc(8 * width_in_bytes);
     memset(next_lines, 0, 8 * width_in_bytes);
-    out_buffer = (unsigned char*)malloc(0x100000);
+    out_buffer = (std::uint8_t*)malloc(0x100000);
     memset(out_buffer, 0, 0x100000);
 
     std::cout << "\x1B$0P" << std::endl;
@@ -247,8 +244,8 @@ void start_page(cups_page_header2_t* page_header)
     const auto get_page_metric =
         [&page_header](const std::size_t metric_index) -> uint16_t
     {
-        return static_cast<uint16_t>(
-            floor(10.0 * (page_header->PageSize[metric_index] * 0.352777778)));
+        return static_cast<uint16_t>(std::floor(
+            10.0 * (page_header->PageSize[metric_index] * 0.352777778)));
     };
 
     const auto metric_width  = get_page_metric(0);
@@ -263,17 +260,18 @@ void start_page(cups_page_header2_t* page_header)
     if (!paper_size_name.empty())
     {
         selected_page_size = static_cast<int16_t>(
-            static_cast<int>(get_page_size_enum(paper_size_name)));
+            static_cast<std::int32_t>(get_page_size_enum(paper_size_name)));
     }
 
     write_short_as_bytes(selected_page_size);
     write_short_as_bytes(page_header->cupsMediaType);
 }
 
-void end_page(const int section_end)
+void end_page(const std::int32_t section_end)
 {
     constexpr std::source_location location = std::source_location::current();
     std::cerr << location.function_name();
+
     std::cout << "\x1B$0F" << std::endl;
 
     write_int_with_suffix(1);
@@ -293,23 +291,23 @@ void end_page(const int section_end)
     }
 }
 
-void shutdown_printer()
-{
-    std::cout << '\x1B' << 'E';
-}
-
-void cancel_job([[maybe_unused]] const int signal)
+void cancel_job([[maybe_unused]] const std::int32_t signal)
 {
     for (size_t i = 0; i < 600; ++i)
     {
         std::cout << '\n';
     }
     end_page(1);
-    shutdown_printer();
+
+    // sequence to cancel job
+    std::cout << '\x1B' << 'E';
+
     exit(EXIT_SUCCESS);
 }
 
-void write_data_to_buffer(unsigned char* start, size_t data_length, void* file)
+void write_data_to_buffer(std::uint8_t*          start,
+                          std::size_t            data_length,
+                          [[maybe_unused]] void* place_holder)
 {
     if (f_should_write_j_big_header && data_length == 20)
     {
@@ -336,29 +334,29 @@ void send_planes_data(cups_page_header2_t* header)
         if ((current_line && inside_band_counter == 255) ||
             (header->cupsHeight - 1 == current_line))
         {
+            std::size_t rows_number = 0;
             if (current_line && inside_band_counter == 255)
             {
-                halftone_dib_to_dib(planes_8,
-                                    planes,
-                                    8 * width_in_bytes,
-                                    256,
-                                    light[1],
-                                    light[0]);
+                rows_number = 256;
             }
             else if (header->cupsHeight - 1 == current_line)
             {
-                halftone_dib_to_dib(planes_8,
-                                    planes,
-                                    8 * width_in_bytes,
-                                    num_ver,
-                                    light[1],
-                                    light[0]);
+                rows_number = num_ver;
             }
+
+            halftone_dib_to_dib(planes_8,
+                                planes,
+                                8 * width_in_bytes,
+                                rows_number,
+                                light[1],
+                                light[0]);
+
             f_should_write_j_big_header = true;
             compressed_length           = 0;
             struct jbg_enc_state encState
             {
             };
+
             jbg_enc_init(&encState,
                          8 * width_in_bytes,
                          num_ver,
@@ -661,11 +659,12 @@ void setup_first_page(const std::string_view&    user_name,
 
     Orientation = static_cast<cups_orient_t>(atoi(value));
 };
-std::size_t rastertokpsl(cups_raster_t*   raster_stream,
-                         std::string_view user_name,
-                         std::string_view job_title,
-                         uint32_t         copies_number,
-                         std::string_view printing_options)
+
+std::size_t rastertokpsl(cups_raster_t*         raster_stream,
+                         const std::string_view user_name,
+                         const std::string_view job_title,
+                         const std::uint32_t    copies_number,
+                         const std::string_view printing_options)
 {
     signal(SIGTERM, cancel_job);
 
@@ -674,7 +673,6 @@ std::size_t rastertokpsl(cups_raster_t*   raster_stream,
         cupsParseOptions(printing_options.data(), 0, &options);
 
     current_page = 0;
-
     cups_page_header2_t page_header_from_file;
     while (cupsRasterReadHeader2(raster_stream, &page_header_from_file))
     {
@@ -721,7 +719,7 @@ std::size_t rastertokpsl(cups_raster_t*   raster_stream,
                                      current_page,
                                      job_media_progress);
 
-                std::cout << "ATTR: job-media-progress=" << job_media_progress;
+                std::cerr << "ATTR: job-media-progress=" << job_media_progress;
             }
 
             if (cupsRasterReadPixels(raster_stream,

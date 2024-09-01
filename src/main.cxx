@@ -13,7 +13,7 @@ int main(int argc, const char** argv)
     if (argc < 6 || argc > 7)
     {
         std::cerr << "Usage: " << rastertokpsl_executable
-                  << "job-id user title copies options <raster_file>";
+                  << "<job-id> <user> <title> <copies> <options> <raster_file>";
         return EXIT_FAILURE;
     }
 
@@ -31,6 +31,7 @@ int main(int argc, const char** argv)
         }
     }
 
+    std::cerr << "opening cups printing stream...";
     cups_raster_t* cups_printing_raster_stream =
         cupsRasterOpen(file_descriptor, CUPS_RASTER_READ);
 
@@ -41,7 +42,7 @@ int main(int argc, const char** argv)
 
     if (!cups_printing_raster_stream)
     {
-        std::cerr << "Unable to open cups_raster";
+        std::cerr << "Unable to open cups_printing_raster_stream";
         return EXIT_FAILURE;
     }
 
@@ -54,7 +55,7 @@ int main(int argc, const char** argv)
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Invalid copies number given:" << e.what();
+        std::cerr << "error: invalid copies number given:" << e.what();
         return EXIT_FAILURE;
     }
 
@@ -68,6 +69,11 @@ int main(int argc, const char** argv)
                     job_title.end());
 
     const std::string_view printing_options = argv[5];
+
+    std::cerr << "starting rastertokpsl with params:"
+              << "user_name =" << user_name << ", job_title =" << job_title
+              << ", copies_number =" << copies_number
+              << ", printing_options =" << printing_options << '\n';
 
     const std::size_t printed_pages_number =
         rastertokpsl(cups_printing_raster_stream,
