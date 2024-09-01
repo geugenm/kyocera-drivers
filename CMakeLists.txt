@@ -22,12 +22,9 @@ add_subdirectory(scripts)
 option(BUILD_TESTS "Build tests" ON)
 if (BUILD_TESTS)
     include(CTest)
-    add_subdirectory(test)
+    add_subdirectory(ctest)
 endif ()
 
-# todo: make main.cxx work without wrapper
-# now we should copy the wrapper to usr/lib/cups/filter
-# and make it named rastertokpsl
 install(TARGETS rastertokpsl
         ARCHIVE DESTINATION /usr/lib/cups/filter
         RUNTIME DESTINATION /usr/lib/cups/filter

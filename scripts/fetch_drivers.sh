@@ -1,7 +1,7 @@
 #!/bin/bash
 
 download_url="https://www.kyoceradocumentsolutions.eu/content/download-center/eu/drivers/all/LinuxDrv_1_1203_FS_1x2xMFP_zip.download.zip"
-source_dir="./.fetched_drivers"
+source_dir=".fetched"
 
 system_arch=$(getconf LONG_BIT)
 echo "Detected system architecture (LONG_BIT): ${system_arch}-bit"

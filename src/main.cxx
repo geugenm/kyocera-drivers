@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fcntl.h>
 #include <filesystem>
 #include <iostream>
@@ -11,7 +12,8 @@ int main(int argc, const char** argv)
     const std::filesystem::path rastertokpsl_executable = argv[0];
     if (argc < 6 || argc > 7)
     {
-        std::cerr << "Usage: " << rastertokpsl_executable << "job-id user title copies options <raster_file>";
+        std::cerr << "Usage: " << rastertokpsl_executable
+                  << "job-id user title copies options <raster_file>";
         return EXIT_FAILURE;
     }
 
@@ -44,39 +46,44 @@ int main(int argc, const char** argv)
     }
 
     const std::string_view requested_copies_number = argv[4];
-    uint32_t copies_number;
 
+    uint32_t copies_number{};
     try
     {
         copies_number = std::stoul(requested_copies_number.data());
     }
-    catch (const std::invalid_argument & e) {
-        std::cerr << "Invalid copies number given:" << e.what();
-        return EXIT_FAILURE;
-    }
-    catch (const std::out_of_range & e) {
+    catch (const std::exception& e)
+    {
         std::cerr << "Invalid copies number given:" << e.what();
         return EXIT_FAILURE;
     }
 
-    const std::string_view user_name        = argv[2];
-    const std::string_view job_title        = argv[3];
+    const std::string_view user_name = argv[2];
+
+    std::string job_title = argv[3];
+    job_title.erase(std::remove_if(job_title.begin(),
+                                   job_title.end(),
+                                   [](const char c)
+                                   { return !std::isalnum(c); }),
+                    job_title.end());
+
     const std::string_view printing_options = argv[5];
 
-    const size_t pages_number = rastertokpsl(cups_printing_raster_stream,
-                                               user_name,
-                                               job_title,
-                                               copies_number,
-                                               printing_options);
+    const std::size_t printed_pages_number =
+        rastertokpsl(cups_printing_raster_stream,
+                     user_name,
+                     job_title,
+                     copies_number,
+                     printing_options);
 
     cupsRasterClose(cups_printing_raster_stream);
 
-    if (pages_number == 0)
+    if (printed_pages_number == 0)
     {
-        std::cerr << "No pages_number found!";
+        std::cerr << "error: printed_pages_number == 0";
         return EXIT_FAILURE;
     }
 
-    std::cout << "Ready to print!" << std::endl;
+    std::cout << "ready to print!" << std::endl;
     return std::cout.good() ? EXIT_SUCCESS : EXIT_FAILURE;
 }
