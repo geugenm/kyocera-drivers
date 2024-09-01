@@ -71,8 +71,8 @@ void write_int_with_documentation_suffix(const std::uint32_t n)
     pwrite_int_f("%c%c%c%c@@@@0100", n);
 }
 
-bool               is_printing_vertical;
-std::array<int, 2> light;
+bool               is_printing_vertical = false;
+std::array<int, 2> light = {};
 
 uint32_t         current_page    = 0;
 int32_t          pages           = 0;
