@@ -6,7 +6,7 @@ find_library(cupsimage cupsimage REQUIRED)
 add_subdirectory(unicode)
 add_subdirectory(libjbig)
 
-add_library(rastertokpsl_core OBJECT rastertokpsl.cxx halfton.c)
+add_library(rastertokpsl_core STATIC rastertokpsl.cxx halfton.c)
 target_link_libraries(rastertokpsl_core PRIVATE cupsimage cups unicode libjbig)
 target_include_directories(rastertokpsl_core PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
