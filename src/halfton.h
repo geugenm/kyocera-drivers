@@ -3,7 +3,8 @@
  *
  * Copyright 2015 by svolkov
  *
- * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 //
@@ -17,4 +18,4 @@
 
 void HalftoneDibToDib(unsigned char*, unsigned char*, int, int, int, int);
 
-#endif //RASTERTOKPSL_HALFTON_H
+#endif // RASTERTOKPSL_HALFTON_H

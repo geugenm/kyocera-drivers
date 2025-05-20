@@ -3,7 +3,8 @@
  *
  * Copyright 2015 by svolkov
  *
- * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 //
@@ -19,21 +20,21 @@
 /****** Common helper macros ***********************************************/
 
 #if !defined(LOBYTE)
-#define LOBYTE(w)           ((unsigned char)(w))
+#define LOBYTE(w) ((unsigned char)(w))
 #endif
 #if !defined(HIBYTE)
-#define HIBYTE(w)           ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
+#define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
 #endif
 
 #if !defined(LOWORD)
-#define LOWORD(d)           ((unsigned short)(d))
+#define LOWORD(d) ((unsigned short)(d))
 #endif
 #if !defined(HIWORD)
-#define HIWORD(d)           ((unsigned short)((((unsigned long)(d)) >> 16) & 0xFFFF))
+#define HIWORD(d) ((unsigned short)((((unsigned long)(d)) >> 16) & 0xFFFF))
 #endif
 
-#define LODWORD(q)          ((q).u.dwLowDword)
-#define HIDWORD(q)          ((q).u.dwHighDword)
+#define LODWORD(q) ((q).u.dwLowDword)
+#define HIDWORD(q) ((q).u.dwHighDword)
 
 // <cups/language-private.h>
 // declarations from full source cups/language-private.h
@@ -43,13 +44,14 @@
  * Macro for localized text...
  */
 
-#  define _(x) x
+#define _(x) x
 
-extern void		_cupsLangPrintError(const char *prefix,
-                                               const char *message);
-extern int		_cupsLangPrintFilter(FILE *fp, const char *prefix,
-                                               const char *message, ...)
-        __attribute__ ((__format__ (__printf__, 3, 4)));
+extern void _cupsLangPrintError(const char* prefix, const char* message);
+extern int  _cupsLangPrintFilter(FILE*       fp,
+                                 const char* prefix,
+                                 const char* message,
+                                 ...)
+    __attribute__((__format__(__printf__, 3, 4)));
 
 // end <cups/language-private.h>
 
@@ -57,16 +59,22 @@ extern int		_cupsLangPrintFilter(FILE *fp, const char *prefix,
  * Prototypes...
  */
 
-void	Setup(void);
-void	StartPage(/* ppd_file_t *ppd,*/ cups_page_header2_t *header);
-void	EndPage(int sectionEnd);
-void	Shutdown(void);
+void Setup(void);
+void StartPage(/* ppd_file_t *ppd,*/ cups_page_header2_t* header);
+void EndPage(int sectionEnd);
+void Shutdown(void);
 
-void	CancelJob(int sig);
-void	CompressData(unsigned char *line, unsigned length, unsigned plane, unsigned type);
-void	OutputLine(cups_page_header2_t *header);
+void CancelJob(int sig);
+void CompressData(unsigned char* line,
+                  unsigned       length,
+                  unsigned       plane,
+                  unsigned       type);
+void OutputLine(cups_page_header2_t* header);
 
-int     rastertokpsl(cups_raster_t *ras, const char *user, const char *title, int copies,
-                     const char *options);
+int rastertokpsl(cups_raster_t* ras,
+                 const char*    user,
+                 const char*    title,
+                 int            copies,
+                 const char*    options);
 
-#endif //RASTERTOKPSL_RASTERTOKPSL_H
+#endif // RASTERTOKPSL_RASTERTOKPSL_H
