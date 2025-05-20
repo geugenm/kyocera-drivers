@@ -12,6 +12,8 @@ target_include_directories(rastertokpsl_core PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 add_executable(rastertokpsl main.c)
 target_link_libraries(rastertokpsl PRIVATE rastertokpsl_core)
+
+# /usr/lib64/libm.so.6: error adding symbols: DSO missing from command line
 target_link_libraries(rastertokpsl PRIVATE m)
 
 install(
