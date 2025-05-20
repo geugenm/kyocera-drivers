@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 
-jobname=$(echo $3 | egrep -o '[[:alnum:]]' | tr -d "\n" | tail -c 20)
-/home/e_gleba/job/kyocera-drivers/build/debug/src/rastertokpsl "$1" "$2" "$jobname" "$4" "$5"
+set -euo pipefail
+
+job_name=$(printf '%s' "$3" | grep -o '[[:alnum:]]' | tr -d '\n' | tail -c 20)
+
+exec /usr/lib/cups/filter/rastertokpsl-bin "$1" "$2" "$job_name" "$4" "$5"
+

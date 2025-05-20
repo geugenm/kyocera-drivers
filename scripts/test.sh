@@ -1,15 +1,13 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
 
-PPD="/etc/cups/ppd/FS-1020MFP.ppd" # Path to your Kyocera PPD
-PDF="test.pdf"                     # Test document
-RASTER="test_raster.ras"
-OUTPUT="output.kpsl"
+set -euo pipefail
 
-# Generate raster data with correct CUPS-style arguments
-/usr/lib/cups/filter/pdftoraster 1 user "Test Job" 1 "PageSize=A4" "$PDF" >"$RASTER"
+pdf_file="test.pdf"
+raster_file="test_raster.ras"
+output_file="output.kpsl"
 
-# Correct: Pass all 5 required args to wrapper.sh
-sh wrapper.sh "$RASTER" user "Test Job" 1 "PageSize=A4" >"$OUTPUT"
+/usr/lib/cups/filter/pdftoraster 1 user "test_job" 1 "PageSize=A4" "$pdf_file" >"$raster_file"
 
-echo "KPSL output saved to $OUTPUT"
+exec sh wrapper.sh "$raster_file" user "test_job" 1 "PageSize=A4" >"$output_file"
+
+printf 'kpsl output saved to %s\n' "$output_file"

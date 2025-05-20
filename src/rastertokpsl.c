@@ -1,19 +1,5 @@
-/*
- * Kyocera KPSL filter for CUPS.
- *
- * Copyright 2015 by svolkov
- *
- * Licensed under Apache License v2.0.  See the file "LICENSE" for more
- * information.
- */
-
-/*
- * Include necessary headers...
- */
-
 #include <cups/cups.h>
 #include <cups/raster.h>
-// #include <cups/language-private.h>
 
 #include <fcntl.h>
 #include <math.h>
@@ -66,12 +52,9 @@ unsigned char* nextLines;
 unsigned       iLineSize;
 unsigned char* Lines;
 
-// int skipFlag;
 int insideBandCounter;
 
 // StartPage
-// unsigned printarea_x;
-// unsigned printarea_y;
 unsigned WidthInBytes;
 unsigned iRealPlaneSize;
 unsigned iPlaneSize;
@@ -81,9 +64,6 @@ unsigned iPlaneSize8;
 unsigned char* Planes;
 unsigned char* Planes8;
 unsigned char* OutBuffer;
-
-// EndPage
-// unsigned sectionEndFlag;
 
 // SendPlanesData
 unsigned y; /* Current line */
@@ -714,11 +694,6 @@ int rastertokpsl(cups_raster_t* ras,
                                                       &pbuffer,
                                                       pbuffer + sizeof(buffer),
                                                       strictConversion);
-            // fprintf(stderr, "INFO: ConversionResult=%d\n", res);
-            // fprintf(stderr, "INFO: argv[2]=%s len=%d\n", argv[2],
-            // (int)strlen(argv[2])); char s_user[32]; strcpy((char *) &s_user,
-            // argv[2]); wchar_t w_user[16]; memset(&w_user, 0, sizeof(w_user));
-            // asciitounicode2((wchar_t *) &w_user, (char *) &s_user, 16);
             fwrite(&buffer, 2, 16, stdout);
 
             char buf_time[14];
@@ -750,13 +725,6 @@ int rastertokpsl(cups_raster_t* ras,
             fprintf(stderr, "INFO: pages=%d\n", pages);
             fprintf(stderr, "INFO: pdfFlag=%d\n", pdfFlag);
 
-            // value =
-            // cupsGetOption("com.apple.print.PrintSettings.PMCopies..n.",
-            // num_options,
-            //                       options);
-            // if (value)
-            //         v44 = atoi(value);
-
             /*
              * N-Up printing places multiple document pages on a single printed
              * page CUPS supports 1, 2, 4, 6, 9, and 16-Up formats; the default
@@ -787,25 +755,17 @@ int rastertokpsl(cups_raster_t* ras,
             fprintf(stderr, "INFO: PMLayoutRows=%d\n", nup_row);
             fprintf(stderr, "INFO: nup=%d\n", nup);
 
-            // char s_title[64];
-            // strcpy((char *) &s_title, argv[3]);
-            // uint16_t w_title[32];
-            // memset(&w_title, 0, sizeof(w_title));
-            // asciitounicode2((uint16_t *) &w_title, (char *) &s_title, 32);
             printf("\x1B$0D");
             pwrite_int_start(16); // fprintf(fp, "%c%c%c%c@@@@", 16, 0, 0, 0);
 
             memset(&buffer, 0, sizeof(buffer));
             pbuffer = (UTF16*)&buffer;
             parg    = (UTF8*)title;
-            // fprintf(stderr, "INFO: argv[3]=%s len=%d\n", argv[3],
-            // (int)strlen(argv[3]));
-            res = ConvertUTF8toUTF16(&parg,
+            res     = ConvertUTF8toUTF16(&parg,
                                      parg + strlen(title),
                                      &pbuffer,
                                      pbuffer + sizeof(buffer),
                                      lenientConversion);
-            // fprintf(stderr, "INFO: ConversionResult=%d\n", res);
             fwrite(&buffer, 2, 0x20, stdout);
 
             /*
@@ -913,19 +873,6 @@ int rastertokpsl(cups_raster_t* ras,
 
         for (y = 0; y < header.cupsHeight; ++y)
         {
-            /*        v45 = cupsRasterReadPixels(ras, nextLines, iLineSize);
-                    insideBandCounter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31
-               >> 24); if (vertFlag && band - y <= 0xFF) vertFlag = 0;
-                    memcpy(Lines, nextLines, v45);
-                    if (!skipFlag)
-                            SendPlanesData(header.cupsCompression);
-                    v45 = cupsRasterReadPixels(ras, nextLines, iLineSize);
-                    if (!v45 && !cupsRasterReadHeader2(ras, &header)) {
-                            endOfDataFlag = 1;
-                            break;
-                    }
-                    */
-
             /*
              * Print progress...
              */
@@ -953,9 +900,6 @@ int rastertokpsl(cups_raster_t* ras,
             insideBandCounter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);
             if (vertFlag && header.cupsHeight - y <= 0xFF)
                 vertFlag = 0;
-            // fprintf(stderr, "INFO: insideBandCounter=%d\n",
-            // insideBandCounter); fprintf(stderr, "INFO: vertFlag=%d\n",
-            // vertFlag);
 
             /*
              * Write it to the printer...
@@ -964,47 +908,7 @@ int rastertokpsl(cups_raster_t* ras,
             memcpy(Lines, nextLines, header.cupsBytesPerLine);
             SendPlanesData(&header);
         }
-
-        /*
-                        EndPage();
-                        if ((pdfFlag || Page % (signed int) floor(ceil(((float)
-           pages / (float) nup))))
-                            && (!pdfFlag || !endOfDataFlag)) {
-                                skipFlag = 0;
-                        }
-                        else if (skipFlag) {
-                                if (Page != 1 && endOfDataFlag) {
-                                        printf("\x1B$0E");
-                                        pwrite_int_start(0); //fprintf(fp,
-           "%c%c%c%c@@@@", 0, 0, 0, 0);
-                                }
-                                skipFlag = 0;
-                        }
-                        else {
-                                if (endOfDataFlag) {
-                                        printf("\x1B$0E");
-                                        pwrite_int_start(0); //fprintf(fp,
-           "%c%c%c%c@@@@", 0, 0, 0, 0);
-                                }
-                                if (Page != 1) {
-                                        if (v37) {
-                                                if (nup == 0) {
-                                                        v9 = 0;
-                                                } else {
-                                                        v9 = (signed int)
-           floor(ceil(((float) pages / (float) nup)));
-                                                }
-                                                if ((((char) v9 + (v9 >> 31)) &
-           1) - (v9 >> 31) == 1) { skipFlag = 1;
-                                                        --Page;
-                                                }
-                                        }
-                                }
-                        }
-                        */
     }
-    // while (!endOfDataFlag);
-
     // last page end
     EndPage(1);
 

@@ -1,23 +1,7 @@
-/*
- * Kyocera KPSL filter for CUPS.
- *
- * Copyright 2015 by svolkov
- *
- * Licensed under Apache License v2.0.  See the file "LICENSE" for more
- * information.
- */
-
-//
-// Created by svolkov on 29.09.15.
-//
-
-#include "halfton.h"
-#include "string.h"
+#include <halfton.h>
 #include <stdio.h>
-
-/*
- * Globals...
- */
+#include <stdlib.h>
+#include <string.h>
 
 // Transfer2
 float m_fContrast;
@@ -29,32 +13,6 @@ unsigned char* m_pDitherTable;
 unsigned m_DitherTableW;
 unsigned m_DitherTableH;
 int      m_DitherTablePitch;
-
-/*
-static char DeviceBestDither[256] = {
-        145, 185, 177, 137, 107, 67, 75, 115, 147, 187, 179,
-        139, 105, 65, 73, 113, 193, 241, 233, 161, 59, 11, 19,
-        91, 195, 243, 235, 163, 57, 9, 17, 89, 201, 249, 225,
-        169, 51, 3, 27, 83, 203, 251, 227, 171, 49, 1, 25, 81,
-        153, 217, 209, 129, 99, 35, 43, 123, 155, 219, 211,
-        131, 97, 33, 41, 121, 108, 68, 76, 116, 148, 188, 180,
-        140, 110, 70, 78, 118, 150, 190, 182, 142, 60, 12, 20,
-        92, 196, 244, 236, 164, 62, 14, 22, 94, 198, 246, 238,
-        166, 52, 4, 28, 84, 204, 252, 228, 172, 54, 6, 30, 86,
-        206, 254, 230, 174, 100, 36, 44, 124, 156, 220, 212,
-        132, 102, 38, 46, 126, 158, 222, 214, 134, 146, 186,
-        178, 138, 104, 64, 72, 112, 144, 184, 176, 136, 106,
-        66, 74, 114, 194, 242, 234, 162, 56, 8, 16, 88, 192,
-        240, 232, 160, 58, 10, 18, 90, 202, 250, 226, 170, 48,
-        0, 24, 80, 200, 248, 224, 168, 50, 2, 26, 82, 154, 218,
-        210, 130, 96, 32, 40, 120, 152, 216, 208, 128, 98, 34,
-        42, 122, 111, 71, 79, 119, 151, 191, 183, 143, 109,
-        69, 77, 117, 149, 189, 181, 141, 63, 15, 23, 95, 199,
-        247, 239, 167, 61, 13, 21, 93, 197, 245, 237, 165, 55,
-        7, 31, 87, 207, 254, 231, 175, 53, 5, 29, 85, 205, 253,
-        229, 173, 103, 39, 47, 127, 159, 223, 215, 135, 101,
-        37, 45, 125, 157, 221, 213, 133
-};*/
 
 unsigned char Transfer2(unsigned char value, int contrast, int brightness)
 {
@@ -175,22 +133,6 @@ void HalftoneDibToDib(unsigned char* planes8,
     {
         transferTable[i] = Transfer2((unsigned char)i, contrast, brightness);
     }
-
-    /*
-    fprintf(stderr, "contrast=%d brightness=%d\n", contrast, brightness);
-    fprintf(stderr, "DeviceBestDither\n");
-    for (int i = 0; i < 16; i++) {
-            for (int j = 0; j < 16; j++)
-                    fprintf(stderr, "0x%02X, ", DeviceBestDither[i*16 + j]);
-            fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "m_pDitherTable\n");
-    for (int i = 0; i < 16; i++) {
-            for (int j = 0; j < 16; j++)
-                    fprintf(stderr, "0x%02X, ", m_pDitherTable[i*16 + j]);
-            fprintf(stderr, "\n");
-    }
-    */
 
     v12 = width / 8;
     v13 = (((char)width + ((unsigned int)(width >> 31) >> 29)) & 7) -
