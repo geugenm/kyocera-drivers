@@ -1,69 +1,85 @@
-#define _POSIX_C_SOURCE 200809L
+/*
+ * Kyocera KPSL filter for CUPS.
+ *
+ * Copyright 2015 by svolkov
+ *
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
+ */
 
-#include "rastertokpsl.h"
+//
+// Created by svolkov on 06.10.15.
+//
+
 #include <cups/raster.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
+// #include <cups/language-private.h>
 
-int run_filter(int argc, char* argv[])
+#include "rastertokpsl.h"
+
+/*
+ * usage rastertopcl job-id user title copies options [raster_file]
+ */
+int main(int argc, const char** argv, const char** envp)
 {
-    setvbuf(stderr, NULL, _IONBF, 0); // Unbuffered error output
+    int            fd;  /* File descriptor */
+    cups_raster_t* ras; /* Raster stream for printing */
+
+    /*
+     * Make sure status messages are not buffered...
+     */
+
+    setbuf(stderr, 0);
+
+    /*
+     * Check command-line...
+     */
 
     if (argc < 6 || argc > 7)
     {
+        /*
+         * We don't have the correct number of arguments; write an error message
+         * and return.
+         */
         _cupsLangPrintFilter(
             stderr,
             "ERROR",
             _("%s job-id user title copies options [raster_file]"),
             "rastertokpsl");
-        return EXIT_FAILURE;
+        return (1);
     }
 
-    const int fd =
-        (argc == 7) ? open(argv[6], O_RDONLY | O_CLOEXEC) : STDIN_FILENO;
-
-    if (fd == -1)
+    if (argc == 7)
     {
-        _cupsLangPrintFilter(
-            stderr, "ERROR", _("Failed to open raster file: %s"), argv[6]);
-        return EXIT_FAILURE;
+        if ((fd = open(argv[6], O_RDONLY)) == -1)
+        {
+            _cupsLangPrintFilter(
+                stderr, "ERROR", _("Unable to open raster file"));
+            sleep(1);
+            return (1);
+        }
     }
+    else
+        fd = 0; // stdin
 
-    cups_raster_t* const ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
-    if (!ras)
-    {
-        _cupsLangPrintFilter(
-            stderr, "ERROR", _("Failed to initialize raster stream"));
-        close(fd);
-        return EXIT_FAILURE;
-    }
+    ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
 
-    const int pages =
-        rastertokpsl(ras, argv[2], argv[3], strtol(argv[4], NULL, 10), argv[5]);
+    int pages = rastertokpsl(ras, argv[2], argv[3], atoi(argv[4]), argv[5]);
 
     cupsRasterClose(ras);
-
-    if (fd != STDIN_FILENO)
-    {
+    if (fd != 0)
         close(fd);
-    }
 
-    if (pages > 0)
+    // fclose(fp);
+
+    if (pages != 0)
     {
-        _cupsLangPrintFilter(
-            stderr, "INFO", _("Processed %d pages for printing"), pages);
-        return EXIT_SUCCESS;
+        _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
+        return 0;
     }
-
-    _cupsLangPrintFilter(stderr,
-                         "ERROR",
-                         (pages == 0) ? _("No pages found")
-                                      : _("Processing failed"));
-    return EXIT_FAILURE;
-}
-
-int main(int argc, char* argv[const static argc])
-{
-    return run_filter(argc, argv);
+    else
+    {
+        _cupsLangPrintFilter(stderr, "ERROR", _("No pages found!"));
+        return 1;
+    }
 }

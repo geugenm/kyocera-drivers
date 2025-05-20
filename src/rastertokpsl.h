@@ -1,9 +1,23 @@
+/*
+ * Kyocera KPSL filter for CUPS.
+ *
+ * Copyright 2015 by svolkov
+ *
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
+ */
+
+//
+// Created by svolkov on 29.09.15.
+//
+
 #ifndef RASTERTOKPSL_RASTERTOKPSL_H
 #define RASTERTOKPSL_RASTERTOKPSL_H
 
 #include <stdio.h>
+#include <wchar.h>
 
-#include <cups/raster.h>
+/****** Common helper macros ***********************************************/
 
 #if !defined(LOBYTE)
 #define LOBYTE(w) ((unsigned char)(w))
@@ -23,8 +37,13 @@
 #define HIDWORD(q) ((q).u.dwHighDword)
 
 // <cups/language-private.h>
+// declarations from full source cups/language-private.h
+// not included in base osx system
 
-/// Macro for localized text...
+/*
+ * Macro for localized text...
+ */
+
 #define _(x) x
 
 extern void _cupsLangPrintError(const char* prefix, const char* message);
@@ -35,6 +54,10 @@ extern int  _cupsLangPrintFilter(FILE*       fp,
     __attribute__((__format__(__printf__, 3, 4)));
 
 // end <cups/language-private.h>
+
+/*
+ * Prototypes...
+ */
 
 void Setup(void);
 void StartPage(/* ppd_file_t *ppd,*/ cups_page_header2_t* header);
