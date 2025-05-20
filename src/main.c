@@ -6,14 +6,9 @@
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
  * information.
  */
-
-//
-// Created by svolkov on 06.10.15.
-//
-
 #include <cups/raster.h>
 #include <fcntl.h>
-// #include <cups/language-private.h>
+#include <stdlib.h>
 
 #include "rastertokpsl.h"
 
@@ -46,7 +41,7 @@ int main(int argc, const char** argv, const char** envp)
             "ERROR",
             _("%s job-id user title copies options [raster_file]"),
             "rastertokpsl");
-        return (1);
+        return EXIT_FAILURE;
     }
 
     if (argc == 7)
@@ -56,7 +51,7 @@ int main(int argc, const char** argv, const char** envp)
             _cupsLangPrintFilter(
                 stderr, "ERROR", _("Unable to open raster file"));
             sleep(1);
-            return (1);
+            return EXIT_FAILURE;
         }
     }
     else
@@ -70,16 +65,14 @@ int main(int argc, const char** argv, const char** envp)
     if (fd != 0)
         close(fd);
 
-    // fclose(fp);
-
     if (pages != 0)
     {
         _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
-        return 0;
+        return EXIT_SUCCESS;
     }
     else
     {
         _cupsLangPrintFilter(stderr, "ERROR", _("No pages found!"));
-        return 1;
+        return EXIT_FAILURE;
     }
 }
