@@ -8,6 +8,4 @@ output_file="output.kpsl"
 
 /usr/lib/cups/filter/pdftoraster 1 user "test_job" 1 "PageSize=A4" "$pdf_file" >"$raster_file"
 
-exec sh wrapper.sh "$raster_file" user "test_job" 1 "PageSize=A4" >"$output_file"
-
-printf 'kpsl output saved to %s\n' "$output_file"
+exec /home/e_gleba/job/kyocera-drivers/build/release/src/rastertokpsl 1 user "test_job" 1 "PageSize=A4" "$raster_file" >"$output_file"

@@ -1,33 +1,17 @@
+#include <ctype.h>
 #include <cups/raster.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "rastertokpsl.h"
 
-/*
- * usage rastertopcl job-id user title copies options [raster_file]
- */
-int main(int argc, const char** argv, const char** envp)
+int main(int argc, const char** argv)
 {
-    int            fd;  /* File descriptor */
-    cups_raster_t* ras; /* Raster stream for printing */
-
-    /*
-     * Make sure status messages are not buffered...
-     */
-
-    setbuf(stderr, 0);
-
-    /*
-     * Check command-line...
-     */
+    setbuf(stderr, NULL);
 
     if (argc < 6 || argc > 7)
     {
-        /*
-         * We don't have the correct number of arguments; write an error message
-         * and return.
-         */
         _cupsLangPrintFilter(
             stderr,
             "ERROR",
@@ -36,35 +20,36 @@ int main(int argc, const char** argv, const char** envp)
         return EXIT_FAILURE;
     }
 
-    if (argc == 7)
+    /* Process job name: alnum only, last 20 chars */
+    char job_name[21] = { 0 };
+    for (const char *src = argv[3], *dst = job_name; *src; ++src)
     {
-        if ((fd = open(argv[6], O_RDONLY)) == -1)
+        if (isalnum((unsigned char)*src))
         {
-            _cupsLangPrintFilter(
-                stderr, "ERROR", _("Unable to open raster file"));
-            sleep(1);
-            return EXIT_FAILURE;
+            size_t len = strlen(job_name);
+            if (len >= 20)
+                memmove(job_name, job_name + 1, 19);
+            strncat(job_name, src, 1);
         }
     }
-    else
-        fd = 0; // stdin
 
-    ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
-
-    int pages = rastertokpsl(ras, argv[2], argv[3], atoi(argv[4]), argv[5]);
-
-    cupsRasterClose(ras);
-    if (fd != 0)
-        close(fd);
-
-    if (pages != 0)
+    /* File handling */
+    int fd = (argc == 7) ? open(argv[6], O_RDONLY) : 0;
+    if (fd == -1)
     {
-        _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
-        return EXIT_SUCCESS;
-    }
-    else
-    {
-        _cupsLangPrintFilter(stderr, "ERROR", _("No pages found!"));
+        _cupsLangPrintFilter(stderr, "ERROR", _("Unable to open raster file"));
         return EXIT_FAILURE;
     }
+
+    /* Raster processing */
+    cups_raster_t* ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
+    int pages = rastertokpsl(ras, argv[2], job_name, atoi(argv[4]), argv[5]);
+
+    /* Cleanup */
+    cupsRasterClose(ras);
+    if (fd > 0)
+        close(fd);
+
+    return pages ? EXIT_SUCCESS
+                 : (fprintf(stderr, "ERROR: No pages\n"), EXIT_FAILURE);
 }
