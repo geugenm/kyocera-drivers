@@ -1,8 +1,5 @@
-// Kyocera KPSL filter for CUPS
-// Copyright 2025 by [Your Name]
-// SPDX-License-Identifier: Apache-2.0
-
 #define _POSIX_C_SOURCE 200809L
+
 #include "rastertokpsl.h"
 #include <cups/raster.h>
 #include <fcntl.h>
@@ -66,7 +63,7 @@ int run_filter(int argc, char* argv[])
     return EXIT_FAILURE;
 }
 
-int main(int argc, char* argv[const static argc], char** envp)
+int main(int argc, char* argv[const static argc])
 {
     return run_filter(argc, argv);
 }

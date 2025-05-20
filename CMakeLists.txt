@@ -5,7 +5,7 @@ project(
     VERSION 1.0.0
     DESCRIPTION
         "A revered engineered Kyocera tool to convert raster images to KPSL format"
-    LANGUAGES C CXX
+    LANGUAGES C
 )
 
 list(APPEND CMAKE_PREFIX_PATH cmake/cfg)
