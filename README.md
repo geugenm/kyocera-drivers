@@ -1,4 +1,4 @@
-# Kyocera reverse engineered `rastertokps` (NOT WORKING ANYMORE!!!)
+# Kyocera reverse engineered `rastertokps`
 
 ## Description
 
@@ -40,13 +40,13 @@ These resources are invaluable for:
 
     Security research: Identify potential vulnerabilities in the printing process.
 
-### Disclaimer:
+### Disclaimer
 
 Reverse engineering is a complex field, and the provided resources serve as a starting point for further analysis. The accuracy and completeness of the reconstructed C code are not guaranteed.
 
 ## Uninstalling
 
-```sudo xargs rm < install_manifest.txt```
+`sudo xargs rm < install_manifest.txt`
 
 ## License
 
@@ -54,4 +54,4 @@ This script is released under the GNU GENERAL PUBLIC LICENSE, see [LICENSE](LICE
 
 ## References
 
-https://github.com/sv99/rastertokpsl-re?tab=readme-ov-file
+<https://github.com/sv99/rastertokpsl-re?tab=readme-ov-file>
