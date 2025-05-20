@@ -7,15 +7,12 @@
  * information.
  */
 
-//
-// Created by svolkov on 29.09.15.
-//
-
 #ifndef RASTERTOKPSL_RASTERTOKPSL_H
 #define RASTERTOKPSL_RASTERTOKPSL_H
 
 #include <stdio.h>
-#include <wchar.h>
+
+#include <cups/raster.h>
 
 /****** Common helper macros ***********************************************/
 
@@ -54,10 +51,6 @@ extern int  _cupsLangPrintFilter(FILE*       fp,
     __attribute__((__format__(__printf__, 3, 4)));
 
 // end <cups/language-private.h>
-
-/*
- * Prototypes...
- */
 
 void Setup(void);
 void StartPage(/* ppd_file_t *ppd,*/ cups_page_header2_t* header);

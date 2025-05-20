@@ -14,15 +14,6 @@ find_package(clang_format CONFIG REQUIRED)
 find_package(clang_tidy CONFIG REQUIRED)
 find_package(cpplint CONFIG REQUIRED)
 
-option(
-    USE_CPM
-    "Use cpm (cmake package manager) - https://github.com/cpm-cmake/CPM.cmake"
-    ON
-)
-if(USE_CPM)
-    include(cmake/CPM.cmake)
-endif()
-
 add_subdirectory(src)
 add_subdirectory(scripts)
 
