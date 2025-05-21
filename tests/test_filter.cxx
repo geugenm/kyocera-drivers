@@ -11,13 +11,11 @@ int main()
     const std::string pdf_file    = "test.pdf";
     const std::string ppd_file    = "Kyocera_FS-1020MFPGDI.ppd";
     const std::string output_file = "output.kpsl";
-    const std::string log_file    = "cupsfilter.log";
 
     fs::remove(output_file);
-    fs::remove(log_file);
 
     std::string cmd = "cupsfilter -p " + ppd_file + " -m printer/foo " +
-                      pdf_file + " -e > " + output_file + " 2> " + log_file;
+                      pdf_file + " -e > " + output_file;
 
     std::cout << "running: " << std::quoted(cmd) << std::endl;
     int ret = std::system(cmd.c_str());
