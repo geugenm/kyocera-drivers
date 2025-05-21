@@ -1,49 +1,40 @@
 #include <halfton.h>
+#include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Transfer2
-float m_fContrast;
-float m_fBrightness;
+float m_contrast;
+float m_brightness;
 
 // SetDitherGrayTable
-unsigned char* m_pDitherTable;
+uint8_t* m_dither_table;
 
-unsigned m_DitherTableW;
-unsigned m_DitherTableH;
-int      m_DitherTablePitch;
+uint32_t m_dither_table_w;
+uint32_t m_dither_table_h;
+int32_t  m_dither_table_pitch;
 
-unsigned char Transfer2(unsigned char value, int contrast, int brightness)
+uint8_t transfer2(uint8_t value, int32_t contrast, int32_t brightness)
 {
-
     if (contrast)
     {
-        m_fContrast = contrast * 0.000024999999F * contrast +
-                      0.0074999998F * contrast + 1.0F;
-        float c = (value - 128) * m_fContrast + 128.0F;
-        if (c < 0.0F)
-            value = 0;
-        else if (c >= 255.0F)
-            value = 255;
-        else
-            value = (unsigned char)c;
+        const float m_f_contrast =
+            contrast * 0.000025f * contrast + 0.0075f * contrast + 1.0f;
+        const float c = (value - 128.0f) * m_f_contrast + 128.0f;
+        value         = (uint8_t)fminf(fmaxf(roundf(c), 0.0f), 255.0f);
     }
     if (brightness)
     {
-        m_fBrightness = (float)(0.0049999999 * brightness);
-        float b       = value + m_fBrightness * 255.0F;
-        if (b < 0.0F)
-            value = 0;
-        else if (b >= 255.0F)
-            value = 255;
-        else
-            value = (unsigned char)b;
+        const float m_f_brightness = 0.005f * brightness;
+        const float b              = value + m_f_brightness * 255.0f;
+        value = (uint8_t)fminf(fmaxf(roundf(b), 0.0f), 255.0f);
     }
     return value;
 }
 
-static unsigned char DeviceBestDither[256] = {
+static uint8_t device_best_dither[256] = {
     0x91, 0xB9, 0xB1, 0x89, 0x6B, 0x43, 0x4B, 0x73, 0x93, 0xBB, 0xB3, 0x8B,
     0x69, 0x41, 0x49, 0x71, 0xC1, 0xF1, 0xE9, 0xA1, 0x3B, 0x0B, 0x13, 0x5B,
     0xC3, 0xF3, 0xEB, 0xA3, 0x39, 0x09, 0x11, 0x59, 0xC9, 0xF9, 0xE1, 0xA9,
@@ -68,115 +59,116 @@ static unsigned char DeviceBestDither[256] = {
     0x9D, 0xDD, 0xD5, 0x85
 };
 
-void SetDitherGrayTable(signed char* table, unsigned width, unsigned height)
+void set_dither_gray_table(int8_t* table, uint32_t width, uint32_t height)
 {
-    int v7; // [sp+Ch] [bp-34h]@4
+    if (m_dither_table)
+        free(m_dither_table);
 
-    if (m_pDitherTable)
-        free(m_pDitherTable);
-    m_DitherTableW = width;
-    m_DitherTableH = height;
-    if (width & 7)
-        v7 = 7;
-    else
-        v7 = 0;
-    m_DitherTablePitch = m_DitherTableW + v7;
-    size_t s           = (m_DitherTableW + v7) * m_DitherTableH;
-    m_pDitherTable     = malloc(s);
-    memset(m_pDitherTable, 0, s);
-    for (int j = 0; j < m_DitherTableH; ++j)
+    m_dither_table_w = width;
+    m_dither_table_h = height;
+
+    // Align to 8-byte boundary if needed
+    m_dither_table_pitch = width + (width & 7 ? 8 - (width & 7) : 0);
+
+    size_t size    = m_dither_table_pitch * height;
+    m_dither_table = malloc(size);
+
+    if (!m_dither_table)
     {
-        for (int k = 0; k < m_DitherTablePitch; ++k)
-            m_pDitherTable[k + j * m_DitherTablePitch] =
-                (unsigned char)(-1 -
-                                table[j * m_DitherTableW + k % m_DitherTableW]);
-    }
-}
-
-void SetDefaultScreen()
-{
-    SetDitherGrayTable((signed char*)&DeviceBestDither, 16, 16);
-}
-
-int GetLineBytes(int width, int mult)
-{
-    return ((mult * width + 31) & 0xFFFFFFE0) >> 3;
-}
-
-// void HalftoneDibToDib(unsigned char*, unsigned char*, unsigned, unsigned,
-// unsigned, unsigned);
-
-void HalftoneDibToDib(unsigned char* planes8,
-                      unsigned char* planes,
-                      int            width,
-                      int            numver,
-                      int            contrast,
-                      int            brightness)
-{
-    int            v7;                 // eax@7
-    int            v8;                 // eax@7
-    unsigned char  transferTable[256]; // [sp+10h] [bp-138h]@4
-    int            v12;                // [sp+114h] [bp-34h]@6
-    unsigned int   v13;                // [sp+118h] [bp-30h]@6
-    unsigned char* v17;                // [sp+128h] [bp-20h]@7
-    unsigned char* v18;                // [sp+12Ch] [bp-1Ch]@7
-    unsigned char  v21;                // [sp+138h] [bp-10h]@11
-
-    if (!m_pDitherTable)
-        SetDefaultScreen();
-
-    for (int i = 0; i < 256; i++)
-    {
-        transferTable[i] = Transfer2((unsigned char)i, contrast, brightness);
+        // Handle allocation failure
+        m_dither_table_w = m_dither_table_h = m_dither_table_pitch = 0;
+        return;
     }
 
-    v12 = width / 8;
-    v13 = (((char)width + ((unsigned int)(width >> 31) >> 29)) & 7) -
-          ((unsigned int)(width >> 31) >> 29);
+    memset(m_dither_table, 0, size);
 
-    for (int j = 0; j < numver; j++)
+    for (uint32_t j = 0; j < height; ++j)
     {
-        unsigned char* v16 =
-            &m_pDitherTable[j % m_DitherTableH * m_DitherTablePitch];
-        v7      = GetLineBytes(width, 8);
-        v17     = &planes8[j * v7];
-        v8      = GetLineBytes(width, 1);
-        v18     = &planes[j * v8];
-        int v19 = 0;
-        for (int k = 0; k < v12; k++)
+        for (uint32_t k = 0; k < m_dither_table_pitch; ++k)
         {
-            unsigned char* v20 = v16 + v19;
-            *v18 = (unsigned char)((((transferTable[v17[6]] + *(v20 + 6)) &
-                                     0x100) >>
-                                    7) |
-                                   (((transferTable[v17[5]] + *(v20 + 5)) &
-                                     0x100) >>
-                                    6) |
-                                   (((transferTable[v17[4]] + *(v20 + 4)) &
-                                     0x100) >>
-                                    5) |
-                                   (((transferTable[v17[3]] + *(v20 + 3)) &
-                                     0x100) >>
-                                    4) |
-                                   (((transferTable[v17[2]] + *(v20 + 2)) &
-                                     0x100) >>
-                                    3) |
-                                   (((transferTable[v17[1]] + *(v20 + 1)) &
-                                     0x100) >>
-                                    2) |
-                                   (((transferTable[*v17] + *(v20)) & 0x100) >>
-                                    1) |
-                                   ((transferTable[v17[7]] + *(v20 + 7)) >> 8));
-            v19  = (v19 + 8) % m_DitherTableW;
-            v17 += 8;
-            v18++;
+            uint32_t src_idx        = j * width + k % width;
+            uint32_t dst_idx        = j * m_dither_table_pitch + k;
+            m_dither_table[dst_idx] = (uint8_t)(-1 - table[src_idx]);
         }
-        if (v13)
+    }
+}
+
+void set_default_screen(void)
+{
+    set_dither_gray_table((int8_t*)&device_best_dither, 16, 16);
+}
+
+int32_t get_line_bytes(int32_t width, int32_t mult)
+{
+    return ((mult * width + 31) & ~31) >> 3;
+}
+
+void HalftoneDibToDib(uint8_t* restrict planes8,
+                      uint8_t* restrict planes,
+                      int32_t width,
+                      int32_t numver,
+                      int32_t contrast,
+                      int32_t brightness)
+{
+    static uint8_t transfer_table[256];
+    const size_t   dither_pitch = m_dither_table_pitch;
+
+    if (!m_dither_table)
+        set_default_screen();
+
+    // Precompute transfer table once
+    for (size_t i = 0; i < 256; ++i)
+    {
+        transfer_table[i] = transfer2((uint8_t)i, contrast, brightness);
+    }
+
+    const div_t   dim         = div(width, 8);
+    const int32_t full_blocks = dim.quot;
+    const int32_t remainder   = dim.rem;
+
+    for (int32_t j = 0; j < numver; ++j)
+    {
+        const uint8_t* dither_row =
+            &m_dither_table[(j % m_dither_table_h) * dither_pitch];
+        const int32_t  line_bytes_8 = get_line_bytes(width, 8);
+        const uint8_t* src_row      = &planes8[j * line_bytes_8];
+        const int32_t  line_bytes_1 = get_line_bytes(width, 1);
+        uint8_t*       dst_row      = &planes[j * line_bytes_1];
+
+        size_t dither_offset = 0;
+
+        // Process full 8-pixel blocks
+        for (int32_t k = 0; k < full_blocks; ++k)
         {
-            v21 = 0;
-            for (int l = 0; l < v13; ++l)
-                v21 |= ((v17[l] + *(v16 + v19 + l)) & 0x100) >> (l + 1);
-            *v18 = v21;
+            uint8_t        packed = 0;
+            const uint8_t* dither = &dither_row[dither_offset];
+
+            packed |= ((transfer_table[src_row[0]] + dither[0]) & 0x100) >> 1;
+            packed |= ((transfer_table[src_row[1]] + dither[1]) & 0x100) >> 2;
+            packed |= ((transfer_table[src_row[2]] + dither[2]) & 0x100) >> 3;
+            packed |= ((transfer_table[src_row[3]] + dither[3]) & 0x100) >> 4;
+            packed |= ((transfer_table[src_row[4]] + dither[4]) & 0x100) >> 5;
+            packed |= ((transfer_table[src_row[5]] + dither[5]) & 0x100) >> 6;
+            packed |= ((transfer_table[src_row[6]] + dither[6]) & 0x100) >> 7;
+            packed |= ((transfer_table[src_row[7]] + dither[7]) & 0x100) >> 8;
+
+            *dst_row++    = packed;
+            dither_offset = (dither_offset + 8) % m_dither_table_w;
+            src_row += 8;
+        }
+
+        // Process remainder pixels
+        if (remainder)
+        {
+            uint8_t        packed = 0;
+            const uint8_t* dither = &dither_row[dither_offset];
+
+            for (int32_t l = 0; l < remainder; ++l)
+            {
+                packed |= ((transfer_table[src_row[l]] + dither[l]) & 0x100) >>
+                          (l + 1);
+            }
+            *dst_row = packed;
         }
     }
 }
