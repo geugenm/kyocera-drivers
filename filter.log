@@ -1,0 +1,168 @@
+cupsfilter: File "/usr/lib/cups/filter/rastertokpsl" permissions OK (0100755/uid=0/gid=0).
+DEBUG: argv[0]="cupsfilter"
+DEBUG: argv[1]="1"
+DEBUG: argv[2]="e_gleba"
+DEBUG: argv[3]="test.pdf"
+DEBUG: argv[4]="1"
+DEBUG: argv[5]=""
+DEBUG: argv[6]="tests/test.pdf"
+DEBUG: envp[0]="CONTENT_TYPE=application/pdf"
+DEBUG: envp[1]="CUPS_DATADIR=/usr/share/cups"
+DEBUG: envp[2]=""
+DEBUG: envp[3]="CUPS_SERVERBIN=/usr/lib/cups"
+DEBUG: envp[4]="CUPS_SERVERROOT=/etc/cups"
+DEBUG: envp[5]="LANG=en_US.UTF8"
+DEBUG: envp[6]="PATH=/usr/lib/cups/filter:/usr/bin:/usr/bin:/bin:/usr/bin"
+DEBUG: envp[7]="PPD=ppd/English/Kyocera_FS-1020MFPGDI.ppd"
+DEBUG: envp[8]="PRINTER_INFO=cupsfilter"
+DEBUG: envp[9]="PRINTER_LOCATION=Unknown"
+DEBUG: envp[10]="PRINTER=cupsfilter"
+DEBUG: envp[11]="USER=e_gleba"
+DEBUG: envp[12]="CHARSET=utf-8"
+DEBUG: envp[13]="FINAL_CONTENT_TYPE=application/vnd.cups-raster"
+INFO: universal (PID 24757) started.
+INFO: /usr/lib/cups/filter/rastertokpsl (PID 24758) started.
+DEBUG: ppdFilterLoadPPD: Color profile qualifier determined from job and PPD data 'Gray.PrnDef.600dpi'
+DEBUG: ppdFilterLoadPPD: No ICC profiles specified in PPD
+DEBUG: ppdFilterLoadPPD: Searching for profile "600dpi/PrnDef"...
+DEBUG: ppdFilterLoadPPD: Last filter determined by the PPD: rastertokpsl; Final data MIME type: application/vnd.cups-raster => PDF filter will not log pages in page_log.
+DEBUG: ppdFilterUniversal: "*cupsFilter(2): ..." lines in the PPD file:
+DEBUG: ppdFilterUniversal:    application/vnd.cups-raw application/octet-stream 0 -
+DEBUG: ppdFilterUniversal:    application/vnd.cups-raster 0 /usr/lib/cups/filter/rastertokpsl
+DEBUG: ppdFilterUniversal: PPD uses "*cupsFilter: ..." lines, so we always convert to format given by FINAL_CONTENT_TYPE
+DEBUG: ppdFilterUniversal: Converting from application/pdf to application/vnd.cups-raster
+DEBUG: cfFilterUniversal: Converting from application/pdf to application/vnd.cups-raster
+DEBUG: cfFilterUniversal: Final output format for job: application/vnd.cups-raster
+DEBUG: cfFilterUniversal: Adding pdftopdf to chain
+DEBUG: cfFilterUniversal: Adding ghostscript to chain
+INFO: cfFilterChain: Running filter: pdftopdf
+INFO: cfFilterChain: Running filter: ghostscript
+INFO: cfFilterChain: pdftopdf (PID 24759) started.
+INFO: cfFilterChain: ghostscript (PID 24760) started.
+DEBUG: DEBUG: cfFilterPDFToPDF: Suppressed page logging selected by options.
+cfFilterGhostscript: Output format: CUPS RasterDEBUG: 
+cfFilterPDFToPDF: Processing PDF input with QPDF: Page-ranges, page-set, number-up, booklet, size adjustment, ...
+DEBUG: cfFilterGhostscript: Copying input to temp file "/tmp/060b86835bde0"
+DEBUG: cfFilterPDFToPDF: "print-scaling" IPP attribute: auto
+DEBUG: cfFilterPDFToPDF: Page 1 too large for output page size, scaling pages to fit.
+DEBUG: cfFilterPDFToPDF: Page 2 too large for output page size, scaling pages to fit.
+DEBUG: cfFilterPDFToPDF: Page 3 too large for output page size, scaling pages to fit.
+DEBUG: cfFilterPDFToPDF: Print scaling mode: Scale to fit printable area
+DEBUG: cfFilterChain: pdftopdf completed with status 0.
+DEBUG: cfFilterGhostscript: Input format: PDF
+DEBUG: Color space requested: Default
+DEBUG: Final output format: CUPS Raster
+DEBUG: Format of the input document: application/pdf
+DEBUG: Document's input format provides absolute size dimensions for each page, using these if no output page size is provided.
+DEBUG: Print rendering intent = auto
+DEBUG: Color Manager: Calibration Mode/Off
+DEBUG: Calling FindDeviceById(cups-cupsfilter)
+INFO: DEBUG: cfFilterChain: pdftopdf (PID 24759) exited with no errors.Failed to send: org.freedesktop.ColorManager.NotFound:device id 'cups-cupsfilter' does not exist
+
+DEBUG: Failed to get find device cups-cupsfilter
+DEBUG: Calling FindDeviceById(cups-cupsfilter)
+DEBUG: Failed to send: org.freedesktop.ColorManager.NotFound:device id 'cups-cupsfilter' does not exist
+DEBUG: Failed to get device cups-cupsfilter
+DEBUG: Color Manager: ICC Profile: None
+DEBUG: cfFilterGhostscript: Ghostscript using Any-Part-of-Pixel method to fill paths.
+DEBUG: cfFilterGhostscript: Ghostscript command line: gs -dQUIET -dSAFER -dNOPAUSE -dBATCH -dNOINTERPOLATE -dNOMEDIAATTRS -dUsePDFX3Profile -sstdout=%stderr -sOutputFile=%stdout -sDEVICE=cups -r600x600 -dDEVICEWIDTHPOINTS=595 -dDEVICEHEIGHTPOINTS=842 -dcupsBitsPerColor=8 -dcupsColorOrder=0 -dcupsColorSpace=3 -dcupsCompression=1 -scupsRenderingIntent=auto -scupsPageSizeName=A4 -dcupsManualCopies -I/usr/share/cups/fonts -c '<</.HWMargins[11.990551 10.006299 11.990540 10.006287] /Margins[0 0]>>setpagedevice' -f -_
+DEBUG: cfFilterGhostscript: Started Ghostscript (PID 24761)
+DEBUG: cfFilterGhostscript: Started logging (PID 24762)
+INFO: cfFilterGhostscript: Start rendering...
+INFO: cfFilterGhostscript: Processing page 1...
+DEBUG: cfFilterGhostscript: Input data feed completed
+INFO: CaBrightness=0
+INFO: CaContrast=0
+INFO: pages=0
+INFO: pdfFlag=1
+INFO: PMLayoutColumns=0
+INFO: PMLayoutRows=0
+INFO: nup=1
+INFO: Duplex=0
+INFO: Feeding=0
+INFO: EngineSpeed=0
+INFO: StartPage()
+INFO: cupsHeight=6849(0x1AC1)
+INFO: cupsWidth=4761(0x1299) 0x253
+INFO: WidthInBytes=608(0x260)
+INFO: iRealPlaneSize=155648(0x26000)
+INFO: iPlaneSize=155648(0x26000)
+INFO: iPlaneSize8=1245184(0x130000)
+INFO: metricWidth=2099
+INFO: metricHeight=2970
+INFO: Printing page 1, 0% complete.
+ATTR: job-media-progress=0
+INFO: Printing page 1, 14% complete.
+ATTR: job-media-progress=14
+INFO: Printing page 1, 29% complete.
+ATTR: job-media-progress=29
+INFO: Printing page 1, 44% complete.
+ATTR: job-media-progress=44
+INFO: Printing page 1, 59% complete.
+ATTR: job-media-progress=59
+INFO: Printing page 1, 74% complete.
+ATTR: job-media-progress=74
+INFO: Printing page 1, 89% complete.
+ATTR: job-media-progress=89
+INFO: cfFilterGhostscript: Processing page 2...
+INFO: EndPage()
+INFO: sectionEndFlag=0
+INFO: StartPage()
+INFO: cupsHeight=6849(0x1AC1)
+INFO: cupsWidth=4761(0x1299) 0x253
+INFO: WidthInBytes=608(0x260)
+INFO: iRealPlaneSize=155648(0x26000)
+INFO: iPlaneSize=155648(0x26000)
+INFO: iPlaneSize8=1245184(0x130000)
+INFO: metricWidth=2099
+INFO: metricHeight=2970
+INFO: Printing page 2, 0% complete.
+ATTR: job-media-progress=0
+INFO: Printing page 2, 14% complete.
+ATTR: job-media-progress=14
+INFO: Printing page 2, 29% complete.
+ATTR: job-media-progress=29
+INFO: Printing page 2, 44% complete.
+ATTR: job-media-progress=44
+INFO: Printing page 2, 59% complete.
+ATTR: job-media-progress=59
+INFO: Printing page 2, 74% complete.
+ATTR: job-media-progress=74
+INFO: Printing page 2, 89% complete.
+ATTR: job-media-progress=89
+INFO: cfFilterGhostscript: Processing page 3...
+INFO: EndPage()
+INFO: sectionEndFlag=0
+INFO: StartPage()
+INFO: cupsHeight=6849(0x1AC1)
+INFO: cupsWidth=4761(0x1299) 0x253
+INFO: WidthInBytes=608(0x260)
+INFO: iRealPlaneSize=155648(0x26000)
+INFO: iPlaneSize=155648(0x26000)
+INFO: iPlaneSize8=1245184(0x130000)
+INFO: metricWidth=2099
+INFO: metricHeight=2970
+INFO: Printing page 3, 0% complete.
+ATTR: job-media-progress=0
+INFO: Printing page 3, 14% complete.
+ATTR: job-media-progress=14
+INFO: Printing page 3, 29% complete.
+ATTR: job-media-progress=29
+INFO: Printing page 3, 44% complete.
+ATTR: job-media-progress=44
+INFO: Printing page 3, 59% complete.
+ATTR: job-media-progress=59
+INFO: Printing page 3, 74% complete.
+ATTR: job-media-progress=74
+INFO: Printing page 3, 89% complete.
+ATTR: job-media-progress=89
+INFO: cfFilterGhostscript: Processing page 4...
+INFO: cfFilterGhostscript: Rendering completed
+DEBUG: cfFilterGhostscript: Ghostscript (PID 24761) exited with no errors.
+DEBUG: cfFilterGhostscript: Logging (PID 24762) exited with no errors.
+DEBUG: cfFilterChain: ghostscript completed with status 0.
+INFO: cfFilterChain: ghostscript (PID 24760) exited with no errors.
+INFO: EndPage()
+INFO: sectionEndFlag=1
+INFO: universal (PID 24757) exited with no errors.
+INFO: /usr/lib/cups/filter/rastertokpsl (PID 24758) exited with no errors.

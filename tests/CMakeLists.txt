@@ -41,3 +41,31 @@ add_test(
     COMMAND test_rastertokpsl
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+add_executable(test_filter test_filter.cxx)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/Kyocera_FS-1020MFPGDI.ppd
+    COMMAND
+        ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ppd/English/Kyocera_FS-1020MFPGDI.ppd
+        ${CMAKE_CURRENT_BINARY_DIR}/Kyocera_FS-1020MFPGDI.ppd
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../ppd/English/Kyocera_FS-1020MFPGDI.ppd
+    COMMENT "symlink PPD into binary dir"
+)
+
+add_custom_target(
+    test_filter_assets
+    ALL
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/test.pdf
+        ${CMAKE_CURRENT_BINARY_DIR}/Kyocera_FS-1020MFPGDI.ppd
+)
+
+add_dependencies(test_filter test_filter_assets)
+
+add_test(
+    NAME filter_chain
+    COMMAND test_filter
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
