@@ -1,25 +1,21 @@
-# Use a lightweight base image
-FROM manjarolinux/base
+FROM fedora:latest
 
-# Set the working directory to /app
 WORKDIR /app
 
-# Install necessary dependencies
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm \
-    base-devel \
+RUN dnf -y upgrade && \
+    dnf -y install \
     clang \
     cmake \
     git \
-    ninja \
-    cups
+    ninja-build \
+    make \
+    gcc-c++ \
+    cups-devel && \
+    dnf clean all
 
-# Copy the source code into the container
 COPY . /app
 
-# Build the project using CMakePresets.json
-RUN cmake --preset=Release
-RUN cmake --build .build/release --config Release
+RUN cmake --preset=release && \
+    cmake --build . --parallel --preset=release
 
-# Set the entrypoint to an interactive shell
 CMD ["/bin/bash"]
