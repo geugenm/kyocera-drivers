@@ -14,8 +14,9 @@ int main()
 
     fs::remove(output_file);
 
-    std::string cmd = "cupsfilter -p " + ppd_file + " -m printer/foo " +
-                      pdf_file + " -e > " + output_file;
+    std::string cmd = "cupsfilter -p " + ppd_file +
+                      " -m application/vnd.cups-raster " + pdf_file + " -e > " +
+                      output_file;
 
     std::cout << "running: " << std::quoted(cmd) << std::endl;
     int ret = std::system(cmd.c_str());
