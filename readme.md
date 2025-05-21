@@ -14,6 +14,21 @@ This repository delivers a fully open, reverse-engineered Kyocera PPD and filter
 - x86_64 Linux
 - CUPS print servers (requires `libcups`/`cups-devel`)
 
+## Supported Models
+
+This driver package provides PPDs and filter support for the following Kyocera printers:
+
+- Kyocera FS-1020MFP GDI
+- Kyocera FS-1025MFP GDI
+- Kyocera FS-1040 GDI
+- Kyocera FS-1060DN GDI
+- Kyocera FS-1120MFP GDI
+- Kyocera FS-1125MFP GDI
+
+**Tested:**
+
+- Fully tested and verified with Kyocera FS-1020MFP.
+
 ---
 
 ## Features
