@@ -70,13 +70,6 @@ unsigned y; /* Current line */
 unsigned fWriteJBigHeader;
 unsigned compressedLength;
 
-int isBigEndian()
-{
-    return (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
-}
-
-void Setup(void) {}
-
 void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
 {
     signed short orientation1, orientation2; // [sp+68h] [bp-18h]@4
@@ -207,8 +200,6 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
     }
     WidthInBytes = (unsigned)floor(
         32.0 * ceil((4 * ((header->cupsWidth + 31) >> 5)) / 32.0));
-    // iLineSize = (unsigned) floor(header->cupsBytesPerLine /
-    // header->cupsBitsPerColor);
     iRealPlaneSize = WidthInBytes << 8;
     iPlaneSize     = iRealPlaneSize;
     iPlaneSize8    = iPlaneSize * 8;
@@ -224,7 +215,6 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
             header->cupsWidth >> 3);
     fprintf(
         stderr, "INFO: WidthInBytes=%d(0x%X)\n", WidthInBytes, WidthInBytes);
-    // fprintf(stderr, "INFO: iLineSize=%d(0x%X)\n", iLineSize, iLineSize);
     fprintf(stderr,
             "INFO: iRealPlaneSize=%d(0x%X)\n",
             iRealPlaneSize,
@@ -242,7 +232,6 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
     memset(nextLines, 0, 8 * WidthInBytes);
     OutBuffer = (unsigned char*)malloc(0x100000);
     memset(OutBuffer, 0, 0x100000);
-    // if (!skipFlag) {
     printf("\x1B$0P");   // fwrite("\x1B$0P", 1, 4, fp);
     pwrite_int_start(3); // fprintf(fp, "%c%c%c%c@@@@", 3, 0, 0, 0);
     pwrite_short(
@@ -263,44 +252,26 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
     pwrite_short(
         header->cupsMediaType); // fprintf(fp, "%c%c", LOBYTE(h->cupsMediaType),
                                 // HIBYTE(h->cupsMediaType));
-    //}
 }
 
 void EndPage(int sectionEnd)
 {
     fprintf(stderr, "INFO: EndPage()\n");
-    // if (!skipFlag) {
     printf("\x1B$0F");   // fwrite("\x1B$0F", 1, 4, fp);
     pwrite_int_start(1); // fprintf(fp, "%c%c%c%c@@@@", 1, 0, 0, 0);
-    /* sectionEndFlag = 0;
-    if (pdfFlag && endOfDataFlag) {
-            sectionEndFlag = 1;
-    }
-    else if (pdfFlag || (Page % (unsigned) floor(ceil((float) pages / (float)
-    nup)))) { if (!pdfFlag && endOfDataFlag) sectionEndFlag = 1;
-    }
-    else {
-            sectionEndFlag = 1;
-    } */
+
     fprintf(stderr, "INFO: sectionEndFlag=%d\n", sectionEnd);
     pwrite_int(sectionEnd); // fprintf(fp, "%c%c%c%c", LOBYTE(sectionEndFlag),
                             // HIBYTE(sectionEndFlag), LOBYTE(sectionEndFlag >>
                             // 16), HIBYTE( sectionEndFlag >> 16));
     fflush(stdout);
-    //        skipFlag = 0;
-    //}
     free(Planes);
-    // Planes = NULL;
     free(Planes8);
-    // Planes8 = NULL;
     free(Lines);
-    // Lines = NULL;
     free(nextLines);
-    // nextLines = NULL;
     if (OutBuffer != 0)
     {
         free(OutBuffer);
-        // OutBuffer = NULL;
     }
 }
 
@@ -589,21 +560,6 @@ void SendPlanesData(cups_page_header2_t* header)
     }
 }
 
-/* original stupid implementation converter ascii -> utf16
-void asciitounicode(uint16_t *dest, char *source) {
-        uint16_t *v4 = dest;
-        uint8_t *v3 = source;
-        int swap = isBigEndian();
-        while (*v3) {
-                *v4 = *v3;
-                if (swap)
-                        *v4 = ((LOBYTE(*v4) << 8) | HIBYTE(*v4) >> 8);
-                v3++;
-                v4++;
-        }
-}
-*/
-
 char* timestring(char* out)
 {
     char   buffer[14]; // [sp+16h] [bp-22h]@1
@@ -618,11 +574,11 @@ char* timestring(char* out)
  * usage rastertopcl job-id user title copies options [raster_file]
  * cups_raster_t *ras;                Raster stream for printing
  */
-int rastertokpsl(cups_raster_t* ras,
-                 const char*    user,
-                 const char*    title,
-                 int            copies,
-                 const char*    opts)
+uint32_t rastertokpsl(cups_raster_t* ras,
+                      const char*    user,
+                      const char*    title,
+                      int            copies,
+                      const char*    opts)
 {
     cups_page_header2_t header; /* Page header from file */
     // ppd_file_t *ppd;                /* PPD file - not used in the
@@ -648,12 +604,6 @@ int rastertokpsl(cups_raster_t* ras,
     num_options                = cupsParseOptions(opts, 0, &options);
 
     /*
-     * Initialize the print device...
-     */
-
-    // ppd = ppdOpenFile(getenv("PPD"));
-
-    /*
      * Process pages as needed...
      */
 
@@ -661,10 +611,6 @@ int rastertokpsl(cups_raster_t* ras,
 
     while (cupsRasterReadHeader2(ras, &header))
     {
-        // do {
-        // memset(&header, 0, sizeof(header));
-        // endOfDataFlag = cupsRasterReadHeader2(ras, &header) == 0;
-
         const char* value = NULL;
 
         ++Page;
@@ -677,8 +623,6 @@ int rastertokpsl(cups_raster_t* ras,
              * Setup job in the raster read circle - for setup needs data from
              * header!
              */
-
-            Setup();
 
             printf(
                 "%c%c%c%c%c%c%c%c", 'L', 'S', 'P', 'K', '\x1B', '$', '0', 'J');

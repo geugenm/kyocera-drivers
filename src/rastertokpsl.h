@@ -5,8 +5,6 @@
 
 #include <cups/raster.h>
 
-/****** Common helper macros ***********************************************/
-
 #if !defined(LOBYTE)
 #define LOBYTE(w) ((unsigned char)(w))
 #endif
@@ -44,7 +42,6 @@ extern int  _cupsLangPrintFilter(FILE*       fp,
  * Prototypes...
  */
 
-void Setup(void);
 void StartPage(/* ppd_file_t *ppd,*/ cups_page_header2_t* header);
 void EndPage(int sectionEnd);
 void Shutdown(void);
@@ -56,10 +53,10 @@ void CompressData(unsigned char* line,
                   unsigned       type);
 void OutputLine(cups_page_header2_t* header);
 
-int rastertokpsl(cups_raster_t* ras,
-                 const char*    user,
-                 const char*    title,
-                 int            copies,
-                 const char*    options);
+uint32_t rastertokpsl(cups_raster_t* ras,
+                      const char*    user,
+                      const char*    title,
+                      int            copies,
+                      const char*    options);
 
 #endif // RASTERTOKPSL_RASTERTOKPSL_H

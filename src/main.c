@@ -44,7 +44,7 @@ int main(int argc, const char* argv[])
 
     // Raster processing
     cups_raster_t* ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
-    const int32_t  pages =
+    const uint32_t pages =
         rastertokpsl(ras, argv[2], job_name, atoi(argv[4]), argv[5]);
 
     // Resource cleanup
