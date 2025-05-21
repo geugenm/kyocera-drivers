@@ -849,6 +849,7 @@ int rastertokpsl(cups_raster_t* ras,
             else
                 Orientation = (cups_orient_t)0;
         }
+
         if (Page > 1)
             // Not last page
             EndPage(0);
@@ -911,6 +912,7 @@ int rastertokpsl(cups_raster_t* ras,
     }
     // last page end
     EndPage(1);
+    cupsFreeOptions(num_options, options);
 
     printf("\x1B$0E");
     pwrite_int_start(0); // fprintf(fp, "%c%c%c%c@@@@", 0, 0, 0, 0);
