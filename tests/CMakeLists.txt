@@ -1,9 +1,7 @@
 add_executable(test_rastertokpsl test_raster.cxx)
 
-# Ensure rastertokps is built before the test
 add_dependencies(test_rastertokpsl rastertokpsl)
 
-# Symlink rastertokps into the test binary dir
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/rastertokpsl
     COMMAND
@@ -21,7 +19,6 @@ add_custom_target(
 
 add_dependencies(test_rastertokpsl test_rastertokpsl_symlink)
 
-# Symlink test.pdf as before
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test.pdf
     COMMAND
