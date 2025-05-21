@@ -18,8 +18,8 @@ int main()
         "/usr/lib/cups/filter/pdftoraster 1 user test_job 1 PageSize=A4 " +
         pdf_file + " > " + raster_file;
     std::string cmd_rastertokpsl =
-        "/usr/lib/cups/filter/rastertokpsl-bin 1 user test_job 1 PageSize=A4 " +
-        raster_file + " > " + output_file;
+        "./rastertokpsl 1 user test_job 1 PageSize=A4 " + raster_file + " > " +
+        output_file;
 
     std::cout << "running: " << std::quoted(cmd_pdftoraster) << std::endl;
     int ret1 = std::system(cmd_pdftoraster.c_str());

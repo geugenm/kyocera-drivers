@@ -3,10 +3,11 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "rastertokpsl.h"
 
-int main(int argc, const char** argv)
+int main(int argc, const char* argv[])
 {
     setbuf(stderr, NULL);
 
@@ -20,9 +21,9 @@ int main(int argc, const char** argv)
         return EXIT_FAILURE;
     }
 
-    /* Process job name: alnum only, last 20 chars */
+    // Process job name: alnum only, last 20 chars
     char job_name[21] = { 0 };
-    for (const char *src = argv[3], *dst = job_name; *src; ++src)
+    for (const char* src = argv[3]; *src; ++src)
     {
         if (isalnum((unsigned char)*src))
         {
@@ -33,7 +34,7 @@ int main(int argc, const char** argv)
         }
     }
 
-    /* File handling */
+    // File handling with automatic cleanup
     int fd = (argc == 7) ? open(argv[6], O_RDONLY) : 0;
     if (fd == -1)
     {
@@ -41,14 +42,17 @@ int main(int argc, const char** argv)
         return EXIT_FAILURE;
     }
 
-    /* Raster processing */
+    // Raster processing
     cups_raster_t* ras = cupsRasterOpen(fd, CUPS_RASTER_READ);
-    int pages = rastertokpsl(ras, argv[2], job_name, atoi(argv[4]), argv[5]);
+    const int32_t  pages =
+        rastertokpsl(ras, argv[2], job_name, atoi(argv[4]), argv[5]);
 
-    /* Cleanup */
+    // Resource cleanup
     cupsRasterClose(ras);
     if (fd > 0)
+    {
         close(fd);
+    }
 
     return pages ? EXIT_SUCCESS
                  : (fprintf(stderr, "ERROR: No pages\n"), EXIT_FAILURE);

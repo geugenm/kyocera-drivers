@@ -90,10 +90,6 @@ void SetDitherGrayTable(signed char* table, unsigned width, unsigned height)
             m_pDitherTable[k + j * m_DitherTablePitch] =
                 (unsigned char)(-1 -
                                 table[j * m_DitherTableW + k % m_DitherTableW]);
-        //                        *(k + j * m_DitherTablePitch + m_pDitherTable)
-        //                        =
-        //                                (char)(-1 - *(table + j *
-        //                                m_DitherTableW + k % m_DitherTableW));
     }
 }
 
