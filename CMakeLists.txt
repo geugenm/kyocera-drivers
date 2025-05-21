@@ -8,14 +8,15 @@ project(
     LANGUAGES C CXX
 )
 
-list(APPEND CMAKE_PREFIX_PATH cmake/cfg)
+list(APPEND CMAKE_PREFIX_PATH cmake)
 
 find_package(clang_format CONFIG REQUIRED)
 find_package(clang_tidy CONFIG REQUIRED)
 find_package(cpplint CONFIG REQUIRED)
 
+find_package(kyocera_ppd CONFIG REQUIRED)
+
 add_subdirectory(src)
-add_subdirectory(scripts)
 
 option(BUILD_TESTS "Build tests" ON)
 if(BUILD_TESTS)
