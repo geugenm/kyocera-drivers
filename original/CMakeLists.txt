@@ -54,8 +54,3 @@ install(
         WORLD_READ
         WORLD_EXECUTE
 )
-
-message(
-    STATUS
-    "Installed wrapper as rastertokpsl and binaries rastertokpsl-x32, rastertokpsl-x64 to /usr/lib/cups/filter"
-)
