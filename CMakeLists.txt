@@ -3,21 +3,24 @@ cmake_minimum_required(VERSION 3.25)
 project(
     kyocera_drivers
     VERSION 1.1.0
-    DESCRIPTION
-        "A revered engineered Kyocera tool to convert raster images to KPSL format"
+    DESCRIPTION "High-performance Kyocera raster-to-KPSL conversion toolkit"
     LANGUAGES C CXX
 )
-option(BUILD_TESTS "Build tests" ON)
+
+option(BUILD_TESTS "Enable building of test suite" ON)
 option(
     INSTALL_ORIGINAL_PROPRIETARY_DRIVERS
-    "Install origianl proprietary drivers"
+    "Install official proprietary Kyocera drivers"
     OFF
 )
+option(DOWNLOAD_PPDS "Download and install Kyocera PPD files" OFF)
 
 set(CPACK_COMPONENTS_ALL runtime devel)
-set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "Kyocera CUPS raster filter (runtime)")
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION
+    "Kyocera CUPS raster filter (runtime component)"
+)
 set(CPACK_COMPONENT_DEVEL_DESCRIPTION
-    "Development files for Kyocera raster filter"
+    "Development headers and libraries for Kyocera raster filter"
 )
 set(CPACK_COMPONENT_DEVEL_DEPENDS runtime)
 set(CPACK_PACKAGE_CONTACT "glebajk@gmail.com")
@@ -30,7 +33,9 @@ find_package(clang_format CONFIG REQUIRED)
 find_package(clang_tidy CONFIG REQUIRED)
 find_package(cpplint CONFIG REQUIRED)
 
-find_package(kyocera_ppd CONFIG REQUIRED)
+if(DOWNLOAD_PPDS)
+    find_package(kyocera_ppd CONFIG REQUIRED)
+endif()
 
 if(INSTALL_ORIGINAL_PROPRIETARY_DRIVERS)
     add_subdirectory(original)

@@ -13,7 +13,7 @@ struct state
     std::vector<uint8_t> dither_table;
     uint32_t             width  = 0;
     uint32_t             height = 0;
-    int32_t              pitch  = 0;
+    uint32_t             pitch  = 0;
 
     static constexpr std::array<uint8_t, 256> device_best_dither = {
         0x91, 0xB9, 0xB1, 0x89, 0x6B, 0x43, 0x4B, 0x73, 0x93, 0xBB, 0xB3, 0x8B,
