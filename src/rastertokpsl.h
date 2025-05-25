@@ -9,11 +9,11 @@ extern "C"
 {
 #endif
 
-    uint32_t rastertokpsl(cups_raster_t* ras,
-                          const char*    user,
-                          const char*    job_name,
-                          int32_t        copies,
-                          const char*    options);
+    uint32_t rastertokpsl(cups_raster_t* raster_stream,
+                          const char*    user_name,
+                          const char*    job_title,
+                          int32_t        num_copies,
+                          const char*    options_str);
 
 #ifdef __cplusplus
 }
