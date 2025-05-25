@@ -13,7 +13,7 @@ endforeach()
 # Install wrapper.sh as rastertokpsl
 install(
     PROGRAMS "${CMAKE_CURRENT_LIST_DIR}/wrapper.sh"
-    DESTINATION /usr/lib/cups/filter
+    DESTINATION lib/cups/filter
     RENAME rastertokpsl
     PERMISSIONS
         OWNER_READ
@@ -28,7 +28,7 @@ install(
 # Install rastertokpsl-x32 binary
 install(
     PROGRAMS "${CMAKE_CURRENT_LIST_DIR}/rastertokpsl-x32"
-    DESTINATION /usr/lib/cups/filter
+    DESTINATION lib/cups/filter
     RENAME rastertokpsl-x32
     PERMISSIONS
         OWNER_READ

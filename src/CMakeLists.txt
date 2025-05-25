@@ -33,6 +33,45 @@ target_link_libraries(rastertokpsl PRIVATE m)
 
 install(
     TARGETS rastertokpsl
-    ARCHIVE DESTINATION /usr/lib/cups/filter
-    RUNTIME DESTINATION /usr/lib/cups/filter
+    RUNTIME DESTINATION lib/cups/filter
+    ARCHIVE DESTINATION lib/cups/filter
+    LIBRARY
+        DESTINATION lib/cups/filter
+        COMPONENT runtime
+        PERMISSIONS
+            OWNER_READ
+            OWNER_WRITE
+            OWNER_EXECUTE
+            GROUP_READ
+            GROUP_EXECUTE
+            WORLD_READ
+            WORLD_EXECUTE
+)
+
+# Development headers (only with devel/dev component)
+install(
+    FILES
+        ${CMAKE_CURRENT_LIST_DIR}/halfton.h
+        ${CMAKE_CURRENT_LIST_DIR}/rastertokpsl.h
+    DESTINATION include/rastertokpsl
+    COMPONENT devel
+)
+install(
+    FILES ${CMAKE_CURRENT_LIST_DIR}/unicode/ConvertUTF.h
+    DESTINATION include/rastertokpsl/unicode
+    COMPONENT devel
+)
+install(
+    FILES
+        ${CMAKE_CURRENT_LIST_DIR}/libjbig/jbig.h
+        ${CMAKE_CURRENT_LIST_DIR}/libjbig/jbig85.h
+        ${CMAKE_CURRENT_LIST_DIR}/libjbig/jbig_ar.h
+    DESTINATION include/rastertokpsl/libjbig
+    COMPONENT devel
+)
+# Optionally install static libs in devel
+install(
+    TARGETS rastertokpsl_core halftone
+    ARCHIVE DESTINATION lib/rastertokpsl
+    LIBRARY DESTINATION lib/rastertokpsl COMPONENT devel
 )

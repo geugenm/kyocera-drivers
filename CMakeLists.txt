@@ -1,12 +1,20 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(
-    raster_to_kpsl
+    kyocera_drivers
     VERSION 1.0.0
     DESCRIPTION
         "A revered engineered Kyocera tool to convert raster images to KPSL format"
     LANGUAGES C CXX
 )
+option(BUILD_TESTS "Build tests" ON)
+option(
+    INSTALL_ORIGINAL_PROPRIETARY_DRIVERS
+    "Install origianl proprietary drivers"
+    OFF
+)
+
+include(CPack)
 
 list(APPEND CMAKE_PREFIX_PATH cmake)
 
@@ -16,11 +24,13 @@ find_package(cpplint CONFIG REQUIRED)
 
 find_package(kyocera_ppd CONFIG REQUIRED)
 
-add_subdirectory(src)
-add_subdirectory(original)
-
-option(BUILD_TESTS "Build tests" ON)
-if(BUILD_TESTS)
-    include(CTest)
-    add_subdirectory(tests)
+if(INSTALL_ORIGINAL_PROPRIETARY_DRIVERS)
+    add_subdirectory(original)
+else()
+    add_subdirectory(src)
+    if(BUILD_TESTS)
+        include(CTest)
+        add_subdirectory(tests)
+    endif()
 endif()
+

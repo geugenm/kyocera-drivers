@@ -69,7 +69,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --parallel
 
 # 5. Install (requires root for system-wide)
-sudo cmake --install .
+sudo cmake --install build/release --prefix=/usr
 ```
 
 #### Custom Install Location
@@ -78,6 +78,20 @@ sudo cmake --install .
 cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/.local
 cmake --build . --parallel
 cmake --install .
+```
+
+### Components
+
+To install only runtime:
+
+```sh
+cmake --install build --component runtime
+```
+
+To install only devel:
+
+```sh
+cmake --install build --component devel
 ```
 
 ### Uninstall

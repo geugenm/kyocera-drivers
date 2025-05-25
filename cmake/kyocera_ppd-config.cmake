@@ -37,7 +37,7 @@ endforeach()
 # Install PPDs to the canonical CUPS model directory
 install(
     DIRECTORY "${extracted_dir}/Global/English"
-    DESTINATION "/usr/share/cups/model/Kyocera"
+    DESTINATION "share/cups/model/Kyocera"
     FILES_MATCHING
     PATTERN "*.ppd"
 )
