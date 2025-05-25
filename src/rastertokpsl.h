@@ -53,10 +53,19 @@ void CompressData(unsigned char* line,
                   unsigned       type);
 void OutputLine(cups_page_header2_t* header);
 
-uint32_t rastertokpsl(cups_raster_t* ras,
-                      const char*    user,
-                      const char*    title,
-                      int            copies,
-                      const char*    options);
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+    uint32_t rastertokpsl(cups_raster_t* ras,
+                          const char*    user,
+                          const char*    job_name,
+                          int            copies,
+                          const char*    options);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // RASTERTOKPSL_RASTERTOKPSL_H
