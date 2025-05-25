@@ -1,21 +1,26 @@
-find_program(CLANG_FORMAT "clang-format")
+find_program(
+    clang_format_exe
+    NAMES clang-format
+    DOC
+        "clang-format: automatic C/C++ code formatter. Install: 'sudo dnf install clang-tools-extra', 'sudo apt install clang-format', 'brew install llvm', or 'choco install llvm'. Required for 'clang_format' target."
+)
 
-if(CLANG_FORMAT)
+if(clang_format_exe)
     add_custom_target(
         clang_format
-        COMMAND ${CLANG_FORMAT} -i ${PROJECT_SOURCE_DIR}/**/*.{cpp,cxx,hpp,hxx}
+        COMMAND
+            "${clang_format_exe}" -i
+            "${PROJECT_SOURCE_DIR}/**/*.{cpp,cxx,hpp,hxx}"
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        VERBATIM
         COMMENT
-            "Clang-Format focuses on formatting source code to a specific style, while Clang-Tidy analyzes the code for potential issues, including bugs and performance issues."
+            "running clang-format (automatic code style formatting) on all sources"
+        USES_TERMINAL
     )
 else()
     message(
-        WARNING
-        "clang-format not found. The format target will not be available.\n"
-        "To install clang-format, use one of the following commands:\n"
-        "For DNF: sudo dnf install clang-tools-extra\n"
-        "For Homebrew (macOS): brew install llvm\n"
-        "For Chocolatey (Windows): choco install llvm\n"
-        "For apt (Ubuntu): sudo apt install clang-format\n"
-        "Please ensure that clang-format is in your PATH."
+        NOTICE
+        "clang-format not found. 'clang_format' target will not be available.\n"
+        "install: sudo dnf install clang-tools-extra | sudo apt install clang-format | brew install llvm | choco install llvm"
     )
 endif()

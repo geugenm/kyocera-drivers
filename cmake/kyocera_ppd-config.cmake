@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.28)
-project(kyocera_driver_downloader LANGUAGES NONE)
 
 include(FetchContent)
 

@@ -4,6 +4,7 @@ project(
     kyocera_drivers
     VERSION 1.1.0
     DESCRIPTION "High-performance Kyocera raster-to-KPSL conversion toolkit"
+    HOMEPAGE_URL "https://github.com/geugenm/kyocera-drivers"
     LANGUAGES C CXX
 )
 
@@ -15,22 +16,13 @@ option(
 )
 option(DOWNLOAD_PPDS "Download and install Kyocera PPD files" OFF)
 
-set(CPACK_COMPONENTS_ALL runtime devel)
-set(CPACK_COMPONENT_RUNTIME_DESCRIPTION
-    "Kyocera CUPS raster filter (runtime component)"
-)
-set(CPACK_COMPONENT_DEVEL_DESCRIPTION
-    "Development headers and libraries for Kyocera raster filter"
-)
-set(CPACK_COMPONENT_DEVEL_DEPENDS runtime)
-set(CPACK_PACKAGE_CONTACT "glebajk@gmail.com")
-
-include(CPack)
-
 list(APPEND CMAKE_PREFIX_PATH cmake)
+
+find_package(package CONFIG REQUIRED)
 
 find_package(clang_format CONFIG REQUIRED)
 find_package(clang_tidy CONFIG REQUIRED)
+find_package(clang_doc CONFIG REQUIRED)
 find_package(cpplint CONFIG REQUIRED)
 
 if(DOWNLOAD_PPDS)
@@ -38,11 +30,13 @@ if(DOWNLOAD_PPDS)
 endif()
 
 if(INSTALL_ORIGINAL_PROPRIETARY_DRIVERS)
-    add_subdirectory(original)
+    add_subdirectory(proprietary SYSTEM)
 else()
     add_subdirectory(src)
+
     if(BUILD_TESTS)
         include(CTest)
         add_subdirectory(tests)
     endif()
 endif()
+

@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.25)
 find_library(cups cups REQUIRED)
 find_library(cupsimage cupsimage REQUIRED)
 
-add_subdirectory(unicode)
-add_subdirectory(libjbig)
+add_subdirectory(unicode SYSTEM)
+add_subdirectory(libjbig SYSTEM)
 
 add_library(halftone STATIC halfton.cxx)
 target_include_directories(halftone PUBLIC ${CMAKE_CURRENT_LIST_DIR})
@@ -28,8 +28,18 @@ set_target_properties(
     PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO
 )
 
-# /usr/lib64/libm.so.6: error adding symbols: DSO missing from command line
-target_link_libraries(rastertokpsl PRIVATE m)
+cpack_add_component(
+    runtime
+    DISPLAY_NAME "Runtime"
+    DESCRIPTION "Kyocera CUPS raster filter (runtime component)"
+    REQUIRED
+)
+
+cpack_add_component(
+    devel
+    DISPLAY_NAME "Development"
+    DESCRIPTION "Development headers and libraries for Kyocera raster filter"
+)
 
 install(
     TARGETS rastertokpsl
@@ -56,19 +66,7 @@ install(
     DESTINATION include/rastertokpsl
     COMPONENT devel
 )
-install(
-    FILES ${CMAKE_CURRENT_LIST_DIR}/unicode/ConvertUTF.h
-    DESTINATION include/rastertokpsl/unicode
-    COMPONENT devel
-)
-install(
-    FILES
-        ${CMAKE_CURRENT_LIST_DIR}/libjbig/jbig.h
-        ${CMAKE_CURRENT_LIST_DIR}/libjbig/jbig85.h
-        ${CMAKE_CURRENT_LIST_DIR}/libjbig/jbig_ar.h
-    DESTINATION include/rastertokpsl/libjbig
-    COMPONENT devel
-)
+
 # Optionally install static libs in devel
 install(
     TARGETS rastertokpsl_core halftone

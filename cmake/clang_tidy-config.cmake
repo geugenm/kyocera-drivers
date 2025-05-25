@@ -1,23 +1,25 @@
-find_program(CLANG_TIDY "clang-tidy")
+find_program(
+    clang_tidy_exe
+    NAMES clang-tidy
+    DOC
+        "clang-tidy: clang-based C++ linter. Install: 'sudo dnf install clang-tools-extra', 'sudo apt install clang-tidy', 'brew install llvm', or 'choco install llvm'. Required for 'clang_tidy' target."
+)
 
-if(CLANG_TIDY)
+if(clang_tidy_exe)
     add_custom_target(
         clang_tidy
         COMMAND
-            ${CLANG_TIDY} ${PROJECT_SOURCE_DIR}/**/*.{cpp,cxx,hpp,hxx} --
-            -std=c++20
-        COMMENT
-            "clang-tidy is a clang-based C++ “linter” tool. Its purpose is to provide an extensible framework for diagnosing and fixing typical programming errors, like style violations, interface misuse, or bugs that can be deduced via static analysis. clang-tidy is modular and provides a convenient interface for writing new checks."
+            "${clang_tidy_exe}" "${PROJECT_SOURCE_DIR}/**/*.{cpp,cxx,hpp,hxx}"
+            -- -std=c++20
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        VERBATIM
+        COMMENT "running clang-tidy (static analysis and lint) on all sources"
+        USES_TERMINAL
     )
 else()
     message(
-        WARNING
-        "clang-tidy not found. The tidy target will not be available.\n"
-        "To install clang-tidy, use one of the following commands:\n"
-        "For DNF: sudo dnf install clang-tools-extra\n"
-        "For Homebrew (macOS): brew install llvm\n"
-        "For Chocolatey (Windows): choco install llvm\n"
-        "For apt (Ubuntu): sudo apt install clang-tidy\n"
-        "Please ensure that clang-tidy is in your PATH."
+        NOTICE
+        "clang-tidy not found. 'clang_tidy' target will not be available.\n"
+        "install: sudo dnf install clang-tools-extra | sudo apt install clang-tidy | brew install llvm | choco install llvm"
     )
 endif()

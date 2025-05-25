@@ -1,21 +1,23 @@
-find_program(CPPLINT "cpplint")
+find_program(
+    cpplint_exe
+    NAMES cpplint
+    DOC
+        "cpplint: C++ style checker. Install via 'pip install cpplint', 'sudo dnf install cpplint', or 'brew install cpplint'. Required for 'cpplint' target."
+)
 
-if(CPPLINT)
+if(cpplint_exe)
     add_custom_target(
         cpplint
-        COMMAND
-            ${CPPLINT} --recursive ${PROJECT_SOURCE_DIR}/**/*.{cpp,cxx,hpp,hxx}
-        COMMENT
-            "Cpplint is a command-line tool to check C/C++ files for style issues according to Google's C++ style guide."
+        COMMAND "${cpplint_exe}" --recursive "${PROJECT_SOURCE_DIR}"
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        VERBATIM
+        COMMENT "running cpplint (google C++ style checker) on all sources"
+        USES_TERMINAL
     )
 else()
     message(
-        WARNING
-        "cpplint not found. The lint target will not be available.\n"
-        "To install cpplint, use one of the following commands:\n"
-        "For DNF: sudo dnf install cpplint\n"
-        "For Homebrew (macOS): brew install cpplint\n"
-        "For pip: pip install cpplint\n"
-        "Please ensure that cpplint is in your PATH."
+        NOTICE
+        "cpplint not found. 'cpplint' target will not be available.\n"
+        "install: pip install cpplint | sudo dnf install cpplint | brew install cpplint"
     )
 endif()
