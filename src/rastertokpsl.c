@@ -73,6 +73,7 @@ void start_page(cups_page_header2_t* header)
     signed short orientation1, orientation2;
     signed short pageSizeEnum;
 
+    // TODO: fix orientation issues
     pageSizeEnum = 0;
     switch ((int)header->Orientation)
     {
