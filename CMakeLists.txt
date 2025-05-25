@@ -17,6 +17,7 @@ find_package(cpplint CONFIG REQUIRED)
 find_package(kyocera_ppd CONFIG REQUIRED)
 
 add_subdirectory(src)
+add_subdirectory(original)
 
 option(BUILD_TESTS "Build tests" ON)
 if(BUILD_TESTS)
