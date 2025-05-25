@@ -1,18 +1,48 @@
+#include "rastertokpsl.h"
+
+#include <halfton.h>
+#include <libjbig/jbig.h>
+#include <unicode/ConvertUTF.h>
+
 #include <cups/cups.h>
 #include <cups/raster.h>
 
 #include <fcntl.h>
 #include <math.h>
 #include <signal.h>
+#include <stdio.h>
 
-#include "halfton.h"
-#include "libjbig/jbig.h"
-#include "rastertokpsl.h"
-#include "unicode/ConvertUTF.h"
+#if !defined(LOBYTE)
+#define LOBYTE(w) ((unsigned char)(w))
+#endif
+#if !defined(HIBYTE)
+#define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
+#endif
 
-/*
- * Macros...
- */
+#if !defined(LOWORD)
+#define LOWORD(d) ((unsigned short)(d))
+#endif
+#if !defined(HIWORD)
+#define HIWORD(d) ((unsigned short)((((unsigned long)(d)) >> 16) & 0xFFFF))
+#endif
+
+#define LODWORD(q) ((q).u.dwLowDword)
+#define HIDWORD(q) ((q).u.dwHighDword)
+
+// <cups/language-private.h>
+// declarations from full source cups/language-private.h
+// not included in base osx system
+
+///  Macro for localized text...
+#define _(x) x
+
+extern void _cupsLangPrintError(const char* prefix, const char* message);
+extern int  _cupsLangPrintFilter(FILE*       fp,
+                                 const char* prefix,
+                                 const char* message,
+                                 ...);
+
+// end <cups/language-private.h>
 
 #define LOBYTE(w) ((unsigned char)(w))
 #define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
@@ -577,7 +607,7 @@ char* timestring(char* out)
 uint32_t rastertokpsl(cups_raster_t* ras,
                       const char*    user,
                       const char*    title,
-                      int            copies,
+                      int32_t        copies,
                       const char*    opts)
 {
     cups_page_header2_t header; /* Page header from file */

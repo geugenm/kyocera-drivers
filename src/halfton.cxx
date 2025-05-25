@@ -6,7 +6,9 @@
 #include <cstdint>
 #include <vector>
 
-struct halftone_state
+namespace halftone
+{
+struct state
 {
     std::vector<uint8_t> dither_table;
     uint32_t             width  = 0;
@@ -88,6 +90,7 @@ struct halftone_state
 {
     return ((mult * width + 31) & ~31) >> 3;
 }
+} // namespace halftone
 
 extern "C" void halftone_dib_to_dib(uint8_t* __restrict planes8,
                                     uint8_t* __restrict planes,
@@ -96,7 +99,7 @@ extern "C" void halftone_dib_to_dib(uint8_t* __restrict planes8,
                                     int32_t contrast,
                                     int32_t brightness)
 {
-    static halftone_state state;
+    static halftone::state state;
     if (state.dither_table.empty())
     {
         state.init_default();
@@ -105,8 +108,8 @@ extern "C" void halftone_dib_to_dib(uint8_t* __restrict planes8,
     std::array<uint8_t, 256> transfer_table;
     for (size_t i = 0; i < 256; ++i)
     {
-        transfer_table[i] =
-            transfer_pixel(static_cast<uint8_t>(i), contrast, brightness);
+        transfer_table[i] = halftone::transfer_pixel(
+            static_cast<uint8_t>(i), contrast, brightness);
     }
 
     const int32_t full_blocks = width / 8;
@@ -116,9 +119,11 @@ extern "C" void halftone_dib_to_dib(uint8_t* __restrict planes8,
     {
         const uint8_t* dither_row =
             &state.dither_table[(row % state.height) * state.pitch];
-        const uint8_t* src_row = &planes8[row * calculate_line_bytes(width, 8)];
-        uint8_t*       dst_row = &planes[row * calculate_line_bytes(width, 1)];
-        size_t         dither_pos = 0;
+        const uint8_t* src_row =
+            &planes8[row * halftone::calculate_line_bytes(width, 8)];
+        uint8_t* dst_row =
+            &planes[row * halftone::calculate_line_bytes(width, 1)];
+        size_t dither_pos = 0;
 
         for (int32_t block = 0; block < full_blocks; ++block)
         {
