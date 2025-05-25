@@ -1,6 +1,10 @@
-add_executable(test_rastertokpsl test_raster.cxx)
+add_executable(test_raster test_raster.cxx)
+set_target_properties(
+    test_raster
+    PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO
+)
 
-add_dependencies(test_rastertokpsl rastertokpsl)
+add_dependencies(test_raster rastertokpsl)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/rastertokpsl
@@ -17,7 +21,7 @@ add_custom_target(
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/rastertokpsl
 )
 
-add_dependencies(test_rastertokpsl test_rastertokpsl_symlink)
+add_dependencies(test_raster test_rastertokpsl_symlink)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test.pdf
@@ -29,20 +33,24 @@ add_custom_command(
 )
 
 add_custom_target(
-    test_rastertokpsl_assets
+    test_raster_assets
     ALL
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/test.pdf
 )
 
-add_dependencies(test_rastertokpsl test_rastertokpsl_assets)
+add_dependencies(test_raster test_raster_assets)
 
 add_test(
-    NAME rastertokpsl
-    COMMAND test_rastertokpsl
+    NAME raster_chain
+    COMMAND test_raster
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 add_executable(test_filter test_filter.cxx)
+set_target_properties(
+    test_filter
+    PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO
+)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/Kyocera_FS-1020MFPGDI.ppd

@@ -1,52 +1,69 @@
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <iostream>
+#include <source_location>
 #include <string>
 
 int main()
 {
-    namespace fs = std::filesystem;
+    namespace fs       = std::filesystem;
+    const auto src_tag = std::format(
+        "[{}]",
+        fs::path(std::source_location::current().file_name()).stem().string());
 
-    const std::string pdf_file    = "test.pdf";
-    const std::string raster_file = "test_raster.ras";
-    const std::string output_file = "output.kpsl";
+    // Configuration
+    const fs::path pdf_file    = "test.pdf";
+    const fs::path raster_file = "test_raster.ras";
+    const fs::path output_file = "output.kpsl";
 
+    // Cleanup previous runs
     fs::remove(raster_file);
     fs::remove(output_file);
 
-    std::string cmd_pdftoraster =
-        "/usr/lib/cups/filter/pdftoraster 1 user test_job 1 PageSize=A4 " +
-        pdf_file + " > " + raster_file;
-    std::string cmd_rastertokpsl =
-        "./rastertokpsl 1 user test_job 1 PageSize=A4 " + raster_file + " > " +
-        output_file;
+    // Build commands
+    const auto cmd_pdftoraster =
+        std::format("/usr/lib/cups/filter/pdftoraster 1 user test_job 1 "
+                    "PageSize=A4 {} > {}",
+                    pdf_file.string(),
+                    raster_file.string());
 
-    std::cout << "running: " << std::quoted(cmd_pdftoraster) << std::endl;
-    int ret1 = std::system(cmd_pdftoraster.c_str());
-    if (ret1 != 0)
-    {
-        std::cerr << "error: pdftoraster failed with code " << ret1
-                  << std::endl;
-        return ret1;
-    }
+    const auto cmd_rastertokpsl =
+        std::format("./rastertokpsl 1 user test_job 1 PageSize=A4 {} > {}",
+                    raster_file.string(),
+                    output_file.string());
 
-    std::cout << "running: " << std::quoted(cmd_rastertokpsl) << std::endl;
-    int ret2 = std::system(cmd_rastertokpsl.c_str());
-    if (ret2 != 0)
+    // Execute PDF to raster conversion
+    std::cout << std::format(
+        "{} info: executing pdftoraster: {}\n", src_tag, cmd_pdftoraster);
+    const int ret_pdf = std::system(cmd_pdftoraster.c_str());
+    if (ret_pdf != 0)
     {
-        std::cerr << "error: rastertokpsl-bin failed with code " << ret2
-                  << std::endl;
-        return ret2;
-    }
-
-    if (!fs::exists(output_file))
-    {
-        std::cerr << "error: output file " << std::quoted(output_file)
-                  << " not found" << std::endl;
+        std::cerr << std::format(
+            "{} err: pdftoraster failed ({})\n", src_tag, ret_pdf);
         return EXIT_FAILURE;
     }
 
-    std::cout << "test completed successfully, output file: "
-              << std::quoted(output_file) << std::endl;
-    return std::cout.good() ? EXIT_SUCCESS : EXIT_FAILURE;
+    // Execute raster to KPSL conversion
+    std::cout << std::format(
+        "{} info: executing rastertokpsl: {}\n", src_tag, cmd_rastertokpsl);
+    const int ret_kpsl = std::system(cmd_rastertokpsl.c_str());
+    if (ret_kpsl != 0)
+    {
+        std::cerr << std::format(
+            "{} err: rastertokpsl failed ({})\n", src_tag, ret_kpsl);
+        return EXIT_FAILURE;
+    }
+
+    // Verify output
+    if (!fs::exists(output_file))
+    {
+        std::cerr << std::format(
+            "{} err: missing output file {}\n", src_tag, output_file.string());
+        return EXIT_FAILURE;
+    }
+
+    std::cout << std::format(
+        "{} info: success, output: {}\n", src_tag, output_file.string());
+    return EXIT_SUCCESS;
 }

@@ -1,6 +1,22 @@
-#ifndef RASTERTOKPSL_HALFTON_H
-#define RASTERTOKPSL_HALFTON_H
+#ifndef HALFTON_H
+#define HALFTON_H
 
-void HalftoneDibToDib(unsigned char*, unsigned char*, int, int, int, int);
+#include <stdint.h>
 
-#endif // RASTERTOKPSL_HALFTON_H
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+    void halftone_dib_to_dib(uint8_t* planes8,
+                             uint8_t* planes,
+                             int32_t  width,
+                             int32_t  numver,
+                             int32_t  contrast,
+                             int32_t  brightness);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // HALFTON_H

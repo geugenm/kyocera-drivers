@@ -324,17 +324,17 @@ void SendPlanesData(cups_page_header2_t* header)
         {
             if (y && insideBandCounter == 255)
             {
-                HalftoneDibToDib(
+                halftone_dib_to_dib(
                     Planes8, Planes, 8 * WidthInBytes, 256, light[1], light[0]);
             }
             else if (header->cupsHeight - 1 == y)
             {
-                HalftoneDibToDib(Planes8,
-                                 Planes,
-                                 8 * WidthInBytes,
-                                 numVer,
-                                 light[1],
-                                 light[0]);
+                halftone_dib_to_dib(Planes8,
+                                    Planes,
+                                    8 * WidthInBytes,
+                                    numVer,
+                                    light[1],
+                                    light[0]);
             }
             fWriteJBigHeader = 1;
             compressedLength = 0;
