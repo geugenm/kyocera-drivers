@@ -19,6 +19,7 @@ target_link_libraries(
     PRIVATE cupsimage cups unicode libjbig halftone
 )
 target_include_directories(rastertokpsl_core PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+set_target_properties(rastertokpsl_core PROPERTIES C_STANDARD 23)
 
 add_executable(rastertokpsl main.cxx)
 target_link_libraries(rastertokpsl PRIVATE rastertokpsl_core)

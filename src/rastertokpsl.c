@@ -2,6 +2,7 @@
 
 #include <halfton.h>
 #include <libjbig/jbig.h>
+#include <stdlib.h>
 #include <unicode/ConvertUTF.h>
 
 #include <cups/cups.h>
@@ -11,20 +12,6 @@
 #include <math.h>
 #include <signal.h>
 #include <stdio.h>
-
-#if !defined(LOBYTE)
-#define LOBYTE(w) ((unsigned char)(w))
-#endif
-#if !defined(HIBYTE)
-#define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
-#endif
-
-#if !defined(LOWORD)
-#define LOWORD(d) ((unsigned short)(d))
-#endif
-#if !defined(HIWORD)
-#define HIWORD(d) ((unsigned short)((((unsigned long)(d)) >> 16) & 0xFFFF))
-#endif
 
 #define LODWORD(q) ((q).u.dwLowDword)
 #define HIDWORD(q) ((q).u.dwHighDword)
@@ -43,10 +30,6 @@
 #define pwrite_int(n) pwrite_int_f((FORMAT_INT), (n))
 #define pwrite_int_start(n) pwrite_int_f((FORMAT_INT_START), (n))
 #define pwrite_int_start_doc(n) pwrite_int_f((FORMAT_INT_START_DOC), (n))
-
-/*
- * Globals...
- */
 
 int vert_flag;
 int end_of_data_flag;
@@ -81,14 +64,14 @@ unsigned char* planes_8;
 unsigned char* out_buffer;
 
 // SendPlanesData
-unsigned y; /* Current line */
+unsigned current_line;
 unsigned write_j_big_header;
 unsigned compressed_length;
 
-void start_page(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
+void start_page(cups_page_header2_t* header)
 {
-    signed short orientation1, orientation2; // [sp+68h] [bp-18h]@4
-    signed short pageSizeEnum;               // [sp+78h] [bp-8h]@1
+    signed short orientation1, orientation2;
+    signed short pageSizeEnum;
 
     pageSizeEnum = 0;
     switch ((int)header->Orientation)
@@ -249,44 +232,54 @@ void start_page(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
     memset(next_lines, 0, 8 * width_in_bytes);
     out_buffer = (unsigned char*)malloc(0x100000);
     memset(out_buffer, 0, 0x100000);
-    printf("\x1B$0P");   // fwrite("\x1B$0P", 1, 4, fp);
-    pwrite_int_start(3); // fprintf(fp, "%c%c%c%c@@@@", 3, 0, 0, 0);
-    pwrite_short(
-        orientation1); // fprintf(fp, "%c%c", LOBYTE(v15), HIBYTE(v15));
-    pwrite_short(
-        orientation2); // fprintf(fp, "%c%c", LOBYTE(v16), HIBYTE(v16));
+    printf("\x1B$0P");
+    pwrite_int_start(3);
+    pwrite_short(orientation1);
+    pwrite_short(orientation2);
     unsigned short metricWidth =
         (unsigned short)floor(10.0 * (header->PageSize[0] * 0.352777778));
     unsigned short metricHeight =
         (unsigned short)floor(10.0 * (header->PageSize[1] * 0.352777778));
     fprintf(stderr, "INFO: metricWidth=%d\n", metricWidth);
     fprintf(stderr, "INFO: metricHeight=%d\n", metricHeight);
-    pwrite_short(metricWidth); // fprintf(fp, "%c%c", LOBYTE(v11), HIBYTE(v11));
-    pwrite_short(metricHeight); // fprintf(fp, "%c%c", LOBYTE(v12),
-                                // HIBYTE(v12));
-    pwrite_short(pageSizeEnum); // fprintf(fp, "%c%c", LOBYTE(v17),
-                                // HIBYTE(v17));
-    pwrite_short(
-        header->cupsMediaType); // fprintf(fp, "%c%c", LOBYTE(h->cupsMediaType),
-                                // HIBYTE(h->cupsMediaType));
+    pwrite_short(metricWidth);
+    pwrite_short(metricHeight);
+    pwrite_short(pageSizeEnum);
+    pwrite_short(header->cupsMediaType);
 }
 
-void end_page(int sectionEnd)
+void end_page(const int section_end_flag)
 {
-    fprintf(stderr, "INFO: EndPage()\n");
-    printf("\x1B$0F");   // fwrite("\x1B$0F", 1, 4, fp);
-    pwrite_int_start(1); // fprintf(fp, "%c%c%c%c@@@@", 1, 0, 0, 0);
+    fprintf(stderr, "[end_page] info: started\n");
 
-    fprintf(stderr, "INFO: sectionEndFlag=%d\n", sectionEnd);
-    pwrite_int(sectionEnd); // fprintf(fp, "%c%c%c%c", LOBYTE(sectionEndFlag),
-                            // HIBYTE(sectionEndFlag), LOBYTE(sectionEndFlag >>
-                            // 16), HIBYTE( sectionEndFlag >> 16));
-    fflush(stdout);
+    if (printf("\x1B$0F") < 0)
+    {
+        fprintf(stderr, "[end_page] error: printf failed (escape sequence)\n");
+    }
+
+    if (pwrite_int_start(1) < 0)
+    {
+        fprintf(stderr, "[end_page] error: pwrite_int_start failed\n");
+    }
+
+    fprintf(stderr, "[end_page] info: section_end_flag=%d\n", section_end_flag);
+
+    if (pwrite_int(section_end_flag) < 0)
+    {
+        fprintf(stderr, "[end_page] error: pwrite_int failed\n");
+    }
+
+    if (fflush(stdout) < 0)
+    {
+        fprintf(stderr, "[end_page] error: fflush failed\n");
+    }
+
     free(planes);
     free(planes_8);
     free(lines);
     free(next_lines);
-    if (out_buffer != 0)
+
+    if (out_buffer)
     {
         free(out_buffer);
     }
@@ -294,36 +287,48 @@ void end_page(int sectionEnd)
 
 void shutdown_process(void)
 {
-    printf("%c%c", '\x1B', 'E');
+    if (printf("%c%c", '\x1B', 'E') < 0)
+    {
+        fprintf(stderr, "[shutdown_process] error: printf failed\n");
+    }
 }
 
-void cancel_job(int sig)
+void cancel_job(const int signal)
 {
-    for (int i = 0; i <= 599; ++i)
-        putchar(0);
+    fprintf(stderr, "[cancel_job] info: received signal=%d\n", signal);
+
+    for (size_t i = 0; i <= 599; ++i)
+    {
+        if (putchar(0) == EOF)
+        {
+            fprintf(stderr, "[cancel_job] error: putchar failed at i=%zu\n", i);
+            exit(EXIT_FAILURE);
+        }
+    }
+
     end_page(1);
     shutdown_process();
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
-void output_bie(unsigned char* start, size_t len, void* file)
+void output_bie(uint8_t* input_data, size_t input_len, void* file)
 {
-    if (write_j_big_header && len == 20)
+    if (write_j_big_header && input_len == 20)
     {
         write_j_big_header = 0;
+        return;
     }
-    else
+
+    size_t   bytes_remaining = input_len;
+    uint8_t* output_ptr      = out_buffer + compressed_length;
+    uint8_t* input_ptr       = input_data;
+
+    while (bytes_remaining)
     {
-        size_t         v3  = len;
-        unsigned char* out = out_buffer + compressed_length;
-        unsigned char* in  = start;
-        while (v3)
-        {
-            *out++ = *in++;
-            --v3;
-        }
-        compressed_length += len;
+        *output_ptr++ = *input_ptr++;
+        --bytes_remaining;
     }
+    compressed_length += input_len;
 }
 
 void send_planes_data(cups_page_header2_t* header)
@@ -337,9 +342,10 @@ void send_planes_data(cups_page_header2_t* header)
                lines,
                8 * width_in_bytes);
 
-        if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
+        if ((current_line && inside_band_counter == 255) ||
+            (header->cupsHeight - 1 == current_line))
         {
-            if (y && inside_band_counter == 255)
+            if (current_line && inside_band_counter == 255)
             {
                 halftone_dib_to_dib(planes_8,
                                     planes,
@@ -348,7 +354,7 @@ void send_planes_data(cups_page_header2_t* header)
                                     light[1],
                                     light[0]);
             }
-            else if (header->cupsHeight - 1 == y)
+            else if (header->cupsHeight - 1 == current_line)
             {
                 halftone_dib_to_dib(planes_8,
                                     planes,
@@ -413,7 +419,7 @@ void send_planes_data(cups_page_header2_t* header)
                           // LOBYTE(v26 >> 16), HIBYTE(v26 >> 16));
                 pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
                 pwrite_int(
-                    y -
+                    current_line -
                     255); // fprintf(fp, "%c%c%c%c", LOBYTE(v25), HIBYTE(v25),
                           // LOBYTE(v25 >> 16), HIBYTE(v25 >> 16));
                 pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
@@ -479,12 +485,12 @@ void send_planes_data(cups_page_header2_t* header)
                                  // 16), HIBYTE(iPlaneSize >> 16));
                 pwrite_int(0);   // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
                 pwrite_int(
-                    y -
+                    current_line -
                     255); // fprintf(fp, "%c%c%c%c", LOBYTE(v25), HIBYTE(v25),
                           // LOBYTE(v25 >> 16), HIBYTE(v25 >> 16));
                 pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
                 pwrite_int(1); // fprintf(fp, "%c%c%c%c", 1, 0, 0, 0);
-                if (y && inside_band_counter == 255)
+                if (current_line && inside_band_counter == 255)
                 {
                     fwrite(planes, 1, width_in_bytes << 8, stdout);
                     memset(planes, 0, width_in_bytes << 8);
@@ -501,7 +507,7 @@ void send_planes_data(cups_page_header2_t* header)
                 }
                 else
                 {
-                    if (header->cupsHeight - 1 == y)
+                    if (header->cupsHeight - 1 == current_line)
                     {
                         fwrite(planes, 1, num_ver * width_in_bytes, stdout);
                         memset(planes, 0, num_ver * width_in_bytes);
@@ -513,7 +519,8 @@ void send_planes_data(cups_page_header2_t* header)
     }
     else
     {
-        if ((y && inside_band_counter == 255) || (header->cupsHeight - 1 == y))
+        if ((current_line && inside_band_counter == 255) ||
+            (header->cupsHeight - 1 == current_line))
         {
             printf("\x1B$0R");
             pwrite_int_start(
@@ -549,7 +556,8 @@ void send_planes_data(cups_page_header2_t* header)
                              // HIBYTE(iPlaneSize >> 16));
             pwrite_int(0);   // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
             pwrite_int(
-                y - 255);  // fprintf(fp, "%c%c%c%c", LOBYTE(v30), HIBYTE(v30),
+                current_line -
+                255);      // fprintf(fp, "%c%c%c%c", LOBYTE(v30), HIBYTE(v30),
                            // LOBYTE(v30 >> 16), HIBYTE(v30 >> 16));
             pwrite_int(0); // fprintf(fp, "%c%c%c%c", 0, 0, 0, 0);
             pwrite_int(1); // fprintf(fp, "%c%c%c%c", 1, 0, 0, 0);
@@ -557,7 +565,7 @@ void send_planes_data(cups_page_header2_t* header)
         memcpy(planes + (num_ver - inside_band_counter - 1) * width_in_bytes,
                lines,
                width_in_bytes);
-        if (y && inside_band_counter == 255)
+        if (current_line && inside_band_counter == 255)
         {
             fwrite(planes, 1, width_in_bytes << 8, stdout);
             memset(planes, 0, width_in_bytes << 8);
@@ -574,7 +582,7 @@ void send_planes_data(cups_page_header2_t* header)
         }
         else
         {
-            if (header->cupsHeight - 1 == y)
+            if (header->cupsHeight - 1 == current_line)
             {
                 fwrite(planes, 1, num_ver * width_in_bytes, stdout);
                 memset(planes, 0, num_ver * width_in_bytes);
@@ -584,14 +592,21 @@ void send_planes_data(cups_page_header2_t* header)
     }
 }
 
-char* timestring(char* out)
+void time_string(char* out)
 {
-    char   buffer[14]; // [sp+16h] [bp-22h]@1
-    time_t v3 = time(0);
+    char         buffer[14];
+    const time_t now = time(NULL);
 
-    // struct tm *v4 = localtime(&v3);
-    strftime((char*)&buffer, sizeof(buffer), "%Y%m%d%H%M%S", localtime(&v3));
-    return strncpy(out, (char*)&buffer, sizeof(buffer));
+    if (strftime(buffer, sizeof(buffer), "%Y%m%d%H%M%S", localtime(&now)) == 0)
+    {
+        fprintf(stderr, "time_string: strftime conversion failed\n");
+        return;
+    }
+
+    if (strncpy(out, buffer, sizeof(buffer)) == NULL)
+    {
+        fprintf(stderr, "time_string: strncpy failed\n");
+    }
 }
 
 /// \brief Main rastertokpsl print job handler.
@@ -651,7 +666,7 @@ uint32_t rastertokpsl(cups_raster_t* ras,
             fwrite(buffer, 2, 16, stdout);
 
             char buf_time[14];
-            timestring(buf_time);
+            time_string(buf_time);
             fwrite(buf_time, 1, sizeof(buf_time), stdout);
             pwrite_short(0); // 2 nulls
 
@@ -779,26 +794,28 @@ uint32_t rastertokpsl(cups_raster_t* ras,
         num_ver         = 256;
         num_vert_packed = 256;
 
-        for (y = 0; y < header.cupsHeight; ++y)
+        for (current_line = 0; current_line < header.cupsHeight; ++current_line)
         {
             // Progress every 1024 lines
-            if ((y & 0x3FF) == 0)
+            if ((current_line & 0x3FF) == 0)
             {
                 fprintf(stderr,
                         "info: Printing page %d, %u%% complete.\n",
                         processing_page,
-                        100 * y / header.cupsHeight);
+                        100 * current_line / header.cupsHeight);
                 fprintf(stderr,
                         "attr: job-media-progress=%u\n",
-                        100 * y / header.cupsHeight);
+                        100 * current_line / header.cupsHeight);
             }
 
             if (cupsRasterReadPixels(ras, next_lines, header.cupsBytesPerLine) <
                 1)
                 break;
 
-            inside_band_counter = LOBYTE(y + (y >> 31 >> 24)) - (y >> 31 >> 24);
-            if (vert_flag && header.cupsHeight - y <= 0xFF)
+            inside_band_counter =
+                LOBYTE(current_line + (current_line >> 31 >> 24)) -
+                (current_line >> 31 >> 24);
+            if (vert_flag && header.cupsHeight - current_line <= 0xFF)
                 vert_flag = 0;
 
             memcpy(lines, next_lines, header.cupsBytesPerLine);
