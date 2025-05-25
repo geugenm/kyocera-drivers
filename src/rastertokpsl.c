@@ -29,21 +29,6 @@
 #define LODWORD(q) ((q).u.dwLowDword)
 #define HIDWORD(q) ((q).u.dwHighDword)
 
-// <cups/language-private.h>
-// declarations from full source cups/language-private.h
-// not included in base osx system
-
-///  Macro for localized text...
-#define _(x) x
-
-extern void _cupsLangPrintError(const char* prefix, const char* message);
-extern int  _cupsLangPrintFilter(FILE*       fp,
-                                 const char* prefix,
-                                 const char* message,
-                                 ...);
-
-// end <cups/language-private.h>
-
 #define LOBYTE(w) ((unsigned char)(w))
 #define HIBYTE(w) ((unsigned char)(((unsigned short)(w) >> 8) & 0xFF))
 
@@ -100,7 +85,7 @@ unsigned y; /* Current line */
 unsigned fWriteJBigHeader;
 unsigned compressedLength;
 
-void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
+void start_page(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
 {
     signed short orientation1, orientation2; // [sp+68h] [bp-18h]@4
     signed short pageSizeEnum;               // [sp+78h] [bp-8h]@1
@@ -284,7 +269,7 @@ void StartPage(/*ppd_file_t *ppd,*/ cups_page_header2_t* header)
                                 // HIBYTE(h->cupsMediaType));
 }
 
-void EndPage(int sectionEnd)
+void end_page(int sectionEnd)
 {
     fprintf(stderr, "INFO: EndPage()\n");
     printf("\x1B$0F");   // fwrite("\x1B$0F", 1, 4, fp);
@@ -305,21 +290,21 @@ void EndPage(int sectionEnd)
     }
 }
 
-void Shutdown(void)
+void shutdown_process(void)
 {
     printf("%c%c", '\x1B', 'E');
 }
 
-void CancelJob(int sig)
+void cancel_job(int sig)
 {
     for (int i = 0; i <= 599; ++i)
         putchar(0);
-    EndPage(1);
-    Shutdown();
+    end_page(1);
+    shutdown_process();
     exit(0);
 }
 
-void OutputBie(unsigned char* start, size_t len, void* file)
+void output_bie(unsigned char* start, size_t len, void* file)
 {
     if (fWriteJBigHeader && len == 20)
     {
@@ -339,7 +324,7 @@ void OutputBie(unsigned char* start, size_t len, void* file)
     }
 }
 
-void SendPlanesData(cups_page_header2_t* header)
+void send_planes_data(cups_page_header2_t* header)
 {
     int          v26; // [sp+ECh] [bp-24h]@13
     unsigned int v27; // [sp+F0h] [bp-20h]@27
@@ -374,7 +359,7 @@ void SendPlanesData(cups_page_header2_t* header)
                          numVer,
                          1,
                          &Planes,
-                         OutputBie,
+                         output_bie,
                          stdout);
             jbg_enc_layers(&encState, 0);
             jbg_enc_options(&encState, 0, 0, 256, 0, 0);
@@ -616,7 +601,7 @@ uint32_t rastertokpsl(cups_raster_t* ras,
 
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = CancelJob;
+    sa.sa_handler = cancel_job;
     ;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
@@ -826,7 +811,7 @@ uint32_t rastertokpsl(cups_raster_t* ras,
 
         if (Page > 1)
             // Not last page
-            EndPage(0);
+            end_page(0);
 
         header.cupsBitsPerColor = 1;
         header.cupsCompression  = 1;
@@ -836,7 +821,7 @@ uint32_t rastertokpsl(cups_raster_t* ras,
          * Start the page...
          */
 
-        StartPage(/*ppd,*/ &header);
+        start_page(/*ppd,*/ &header);
 
         // band = header.cupsHeight;
         numVer        = 256;
@@ -854,11 +839,12 @@ uint32_t rastertokpsl(cups_raster_t* ras,
 
             if ((y & 0x3FF) == 0)
             {
-                _cupsLangPrintFilter(stderr,
-                                     "INFO",
-                                     _("Printing page %d, %u%% complete."),
-                                     Page,
-                                     100 * y / header.cupsHeight);
+
+                fprintf(stderr,
+                        "INFO: Printing page %d, %u%% complete.\n",
+                        Page,
+                        100 * y / header.cupsHeight);
+
                 fprintf(stderr,
                         "ATTR: job-media-progress=%u\n",
                         100 * y / header.cupsHeight);
@@ -881,11 +867,11 @@ uint32_t rastertokpsl(cups_raster_t* ras,
              */
 
             memcpy(Lines, nextLines, header.cupsBytesPerLine);
-            SendPlanesData(&header);
+            send_planes_data(&header);
         }
     }
     // last page end
-    EndPage(1);
+    end_page(1);
     cupsFreeOptions(num_options, options);
 
     printf("\x1B$0E");
