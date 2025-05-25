@@ -14,6 +14,14 @@ option(
     OFF
 )
 
+set(CPACK_COMPONENTS_ALL runtime devel)
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "Kyocera CUPS raster filter (runtime)")
+set(CPACK_COMPONENT_DEVEL_DESCRIPTION
+    "Development files for Kyocera raster filter"
+)
+set(CPACK_COMPONENT_DEVEL_DEPENDS runtime)
+set(CPACK_PACKAGE_CONTACT "glebajk@gmail.com")
+
 include(CPack)
 
 list(APPEND CMAKE_PREFIX_PATH cmake)
@@ -33,4 +41,3 @@ else()
         add_subdirectory(tests)
     endif()
 endif()
-
