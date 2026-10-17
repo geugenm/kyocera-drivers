@@ -21,7 +21,10 @@ set(CT_RECORD_FPS "15")
 set(CT_RECORD_SESSIONS quickstart verify)
 # Pause before each command: the real run takes milliseconds, which plays as
 # a still frame; the pauses make the GIF readable.
-set(CT_RECORD_PAUSE "0.7")
+set(CT_RECORD_PAUSE "0.8")
+# How long the loop rests on the finished screen. agg's 3 s default dwarfs
+# the sub-second action frames, so the GIF reads as "stuck at the end".
+set(CT_RECORD_HOLD "1.2")
 # Demo install prefix shown in the recordings (wiped and reinstalled).
 set(CT_DEMO_PREFIX "/tmp/kyocera-demo")
 # --- END CONFIG ---
@@ -127,6 +130,7 @@ foreach(s IN LISTS CT_RECORD_SESSIONS)
         COMMAND
             "${ct_agg}" --theme "${CT_RECORD_THEME}" --font-size
             "${CT_RECORD_FONT_SIZE}" --idle-time-limit "${CT_RECORD_IDLE}"
-            --fps-cap "${CT_RECORD_FPS}" "${ct_casts}/${s}.cast"
+            --fps-cap "${CT_RECORD_FPS}" --last-frame-duration
+            "${CT_RECORD_HOLD}" "${ct_casts}/${s}.cast"
             "${ct_casts}/${s}.gif" COMMAND_ERROR_IS_FATAL ANY)
 endforeach()
