@@ -1,0 +1,12 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    // Local-only: sessions never upload.
+    "share": "disabled",
+    "autoupdate": false,
+    // Watcher is perf-only: ignored trees stay readable via read/grep/glob.
+    "watcher": {
+        "ignore": ["build/**", ".cache/**"]
+    },
+    // V1 loads these; V2 reads the root AGENTS.md pointer instead.
+    "instructions": [".opencode/AGENTS.md", ".opencode/REVIEW.md"]
+}
