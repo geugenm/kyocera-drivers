@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.31 FATAL_ERROR)
 project(
     kyocera_drivers
     VERSION 1.1.4
-    DESCRIPTION "High-performance Kyocera raster-to-KPSL conversion toolkit"
+    DESCRIPTION "Legacy Kyocera GDI printer drivers for modern Linux CUPS"
     HOMEPAGE_URL "https://github.com/e-gleba/kyocera-drivers"
     LANGUAGES NONE
 )
@@ -117,6 +117,16 @@ install(
 )
 
 install(
+    PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/verify.sh"
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+    COMPONENT runtime
+    PERMISSIONS
+        OWNER_READ OWNER_WRITE OWNER_EXECUTE
+        GROUP_READ GROUP_EXECUTE
+        WORLD_READ WORLD_EXECUTE
+)
+
+install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/package/icon.png"
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pixmaps
 )
@@ -131,10 +141,10 @@ install(
 # ------------------------------------------------------------------
 if(PROJECT_IS_TOP_LEVEL)
     set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
-    set(CPACK_PACKAGE_VENDOR "Kyocera Reverse Engineering Team")
+    set(CPACK_PACKAGE_VENDOR "e-gleba")
     set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/package/description.txt")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-        "High-performance Kyocera raster-to-KPSL conversion toolkit"
+        "Legacy Kyocera GDI printer drivers for modern Linux CUPS"
     )
     set(CPACK_PACKAGE_CONTACT "glebajk@gmail.com")
     set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/package/icon.png")
@@ -171,7 +181,7 @@ if(PROJECT_IS_TOP_LEVEL)
     # RPM
     # ------------------------------------------------------------------
     set(CPACK_RPM_PACKAGE_DESCRIPTION
-        "High-performance Kyocera raster-to-KPSL conversion toolkit. See README.md for details."
+        "Legacy Kyocera GDI printer drivers for modern Linux CUPS: original per-model PPDs, the proprietary rastertokpsl filter, and a multi-architecture wrapper (native x86, qemu-i386 on ARM)."
     )
     set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
     set(CPACK_RPM_PACKAGE_GROUP "System/Printing")
@@ -195,7 +205,7 @@ if(PROJECT_IS_TOP_LEVEL)
     # DEB
     # ------------------------------------------------------------------
     set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
-        "High-performance Kyocera raster-to-KPSL conversion toolkit. See README.md for details."
+        "Legacy Kyocera GDI printer drivers for modern Linux CUPS: original per-model PPDs, the proprietary rastertokpsl filter, and a multi-architecture wrapper (native x86, qemu-i386 on ARM)."
     )
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "glebajk@gmail.com")

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# CUPS dispatcher for Kyocera's proprietary rastertokpsl filter.
+#
+# Runs the real filter for this machine — natively on x86, through
+# qemu-i386 on ARM (Kyocera never shipped an ARM build) — and sanitizes
+# the job title, which Kyocera's binary crashes on when it contains
+# non-ASCII bytes (leaves the printer stuck until a power cycle).
 set -euo pipefail
 
 input_file="$1"
@@ -7,32 +13,40 @@ title="$3"
 copies="$4"
 options="$5"
 
-# Force the C locale: tr then treats the title byte-wise, so multibyte
-# UTF-8 characters (e.g. Cyrillic) can never leak into Kyocera's binary,
-# which aborts on non-ASCII input. See "Known Upstream Problems" in readme.
 export LC_ALL=C
-
 job_name=$(echo "$title" | tr -cd '[:alnum:]' | tail -c 20)
 
-# ------------------------------------------------------------------
-# Filter resolution
-# ------------------------------------------------------------------
-# Kyocera's proprietary binary is preferred wherever it can run:
-#   x86/x86_64 — natively;
-#   ARM, etc.  — through qemu-i386, since Kyocera never shipped an ARM
-#                build (see the readme's ARM section).
-# The open-source rastertokpsl-re filter is the fallback when no
-# proprietary binary can run at all.
+# The real filters are installed next to this wrapper, so any install
+# prefix works (/usr, /usr/local, --prefix override).
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 arch=$(uname -m)
 case "$arch" in
 x86_64 | amd64)
-  native="rastertokpsl_amd64"
+  bin="$script_dir/rastertokpsl_amd64"
+  runner=""
   ;;
 i386 | i486 | i586 | i686)
-  native="rastertokpsl_x86"
+  bin="$script_dir/rastertokpsl_x86"
+  runner=""
   ;;
 armv6l | armv7l | armv8l | aarch64 | arm64)
-  native=""
+  # No ARM build exists: run the 32-bit binary under QEMU. The runtime
+  # is installed by scripts/setup.sh (qemu-user-static + i386 cups libs).
+  bin="$script_dir/rastertokpsl_x86"
+  runner=""
+  for q in qemu-i386 qemu-i386-static; do
+    if command -v "$q" >/dev/null 2>&1; then
+      runner="$q"
+      break
+    fi
+  done
+  if [ -z "$runner" ] || [ ! -e /lib/ld-linux.so.2 ] ||
+    [ ! -e /usr/lib/i386-linux-gnu/libcups.so.2 ] ||
+    [ ! -e /usr/lib/i386-linux-gnu/libcupsimage.so.2 ]; then
+    echo "[wrapper.sh] error: QEMU i386 runtime incomplete — see readme (scripts/setup.sh)" >&2
+    exit 1
+  fi
   ;;
 *)
   echo "[wrapper.sh] error: unsupported architecture '$arch'" >&2
@@ -40,51 +54,13 @@ armv6l | armv7l | armv8l | aarch64 | arm64)
   ;;
 esac
 
-# Filters are installed next to this wrapper. Resolve them relative to
-# the script's own location so the install works under any prefix:
-# /usr, /usr/local, or a --prefix override at install time.
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-
-run() {
-  exec "$@" "$input_file" "$user" "$job_name" "$copies" "$options"
-}
-
-# 1. Architecture-native proprietary binary.
-if [ -n "$native" ] && [ -x "$script_dir/$native" ]; then
-  run "$script_dir/$native"
+if [ ! -x "$bin" ]; then
+  echo "[wrapper.sh] error: $(basename "$bin") missing next to the wrapper — reinstall" >&2
+  exit 1
 fi
 
-# 2. Kyocera's 32-bit x86 binary through qemu-i386 (ARM and other hosts).
-if [ -z "$native" ] && [ -x "$script_dir/rastertokpsl_x86" ]; then
-  qemu=""
-  for q in qemu-i386 qemu-i386-static; do
-    if command -v "$q" >/dev/null 2>&1; then
-      qemu="$q"
-      break
-    fi
-  done
-  if [ -n "$qemu" ] &&
-    [ -e /lib/ld-linux.so.2 ] &&
-    [ -e /usr/lib/i386-linux-gnu/libcups.so.2 ] &&
-    [ -e /usr/lib/i386-linux-gnu/libcupsimage.so.2 ]; then
-    run "$qemu" "$script_dir/rastertokpsl_x86"
-  fi
-  echo "[wrapper.sh] note: QEMU i386 runtime unavailable; falling back" >&2
+argv=("$bin")
+if [ -n "$runner" ]; then
+  argv=("$runner" "$bin")
 fi
-
-# 3. Open-source rastertokpsl-re — native alternative used when the
-#    proprietary binary cannot run (ARM without QEMU) or was replaced.
-if [ -x "$script_dir/rastertokpsl-re" ]; then
-  run "$script_dir/rastertokpsl-re"
-fi
-if command -v rastertokpsl-re >/dev/null 2>&1; then
-  run rastertokpsl-re
-fi
-
-echo "[wrapper.sh] error: no usable raster filter for '$arch'" >&2
-echo "  To run Kyocera's x86 filter under emulation (ARM):" >&2
-echo "    sudo dpkg --add-architecture i386 && sudo apt update" >&2
-echo "    sudo apt install qemu-user-static libc6:i386 libcups2:i386 libcupsimage2:i386" >&2
-echo "  Or install the open-source replacement as 'rastertokpsl-re':" >&2
-echo "    https://github.com/Fe-Ti/rastertokpsl-re" >&2
-exit 1
+exec "${argv[@]}" "$input_file" "$user" "$job_name" "$copies" "$options"

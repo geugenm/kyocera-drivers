@@ -1,5 +1,10 @@
-Kyocera Reverse Engineered `rastertokpsl` – Modern CMake Project Overview This repository delivers a fully open, reverse-engineered Kyocera PPD and filter solution for Linux printing environments. It includes:  
-- Modern C++20/C17 source for `rastertokpsl` (Kyocera raster filter)  
-- Automated CMake build and install system  
-- PPD files, filter binaries, and installation scripts  
-- Reverse engineering resources...
+Legacy Kyocera GDI printer drivers for modern Linux CUPS.
+
+Bundles the original per-model PPDs and the proprietary rastertokpsl
+filter (KPSL output), plus a dispatcher wrapper that:
+ - runs the filter natively on x86 and through qemu-i386 on ARM;
+ - sanitizes job titles to ASCII (Kyocera's binary crashes otherwise);
+ - keeps the install relocatable.
+
+Supported models: FS-1020MFP, FS-1025MFP, FS-1040, FS-1060DN,
+FS-1120MFP, FS-1125MFP (GDI family).

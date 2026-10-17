@@ -4,12 +4,20 @@ Thank you for considering a contribution. This document explains how to propose 
 
 ## Development Setup
 
+This is a packaging repository (Bash + CMake, nothing compiled):
+
 ```bash
 git clone https://github.com/e-gleba/kyocera-drivers.git
 cd kyocera-drivers
-cmake --preset gcc
-cmake --build --preset gcc
-ctest --preset gcc
+sudo bash scripts/setup.sh        # prerequisites, build, install, verify
+```
+
+Verify changes before committing:
+
+```bash
+bash -n scripts/*.sh proprietary/wrapper.sh
+bash scripts/test-wrapper.sh      # wrapper dispatch tests
+bash scripts/verify.sh            # end-to-end check, never prints
 ```
 
 ## Branch Naming
@@ -46,19 +54,19 @@ Allowed types: `feat`, `fix`, `docs`, `build`, `test`, `refactor`, `chore`, `ci`
 Before requesting review, verify:
 
 - [ ] The branch is rebased on the latest `master`
-- [ ] `cmake --build --preset gcc` completes without warnings (treat warnings as errors)
-- [ ] `ctest --preset gcc` passes (if tests exist)
+- [ ] `bash -n` passes on every touched script
+- [ ] `bash scripts/test-wrapper.sh` passes
+- [ ] `bash scripts/verify.sh` passes (never sends anything to a printer)
+- [ ] `cmake --preset default && cmake --install build/default --prefix=/tmp/kd-check` installs the expected files for x86_64 and ARM-simulated builds
 - [ ] Markdown files render correctly on GitHub
 - [ ] Commit messages follow Conventional Commits
-- [ ] License headers are present in new source files
 - [ ] The PR description explains the problem and the solution
 
 ## Code Style
 
-- C++: follow the `.clang-format` and `.clang-tidy` rules in the repository root
-- C: same formatting rules apply via `clang-format`
-- CMake: format with `cmake-format` using `.cmake-format.py`
-- Python (scripts): PEP 8, black-compatible
+- Shell: `#!/usr/bin/env bash`, `set -euo pipefail`, quoted expansions; check with `bash -n`
+- CMake: format with `cmake-format` using `.cmake-format.yaml`
+- Markdown: LF line endings, one H1 per file
 
 ## Reporting Bugs
 
@@ -66,17 +74,15 @@ Use the [bug report issue template](../issue_templates/bug_report.md). Include:
 
 - Printer model and firmware version
 - Linux distribution and CUPS version
-- Build preset (`gcc` / `clang` / `msvc`)
+- Install method (`scripts/setup.sh`, package, or manual)
 - Exact command or CUPS job that triggered the failure
 - Relevant excerpts from `/var/log/cups/error_log`
 
-## Reverse Engineering Contributions
+## Adding Printer Support
 
-If your contribution involves new protocol or KPSL observations:
-
-- Document the source (firmware version, capture method, Ghidra version)
-- Keep notes in a separate `docs/re/` markdown file if the surface area is large
-- Do not include proprietary binary excerpts in source files
+- Source PPDs from the [OpenPrinting archive](https://www.openprinting.org/download/PPD/Kyocera/en/) and place them in `ppd/English/`
+- Note the model and where its PPD came from in the PR description
+- Confirm the filter chain with `bash scripts/verify.sh <ppd>`
 
 ## Questions?
 
