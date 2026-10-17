@@ -18,14 +18,14 @@ SUDO=""
 arch=$(uname -m)
 case "$arch" in
 x86_64 | amd64 | i386 | i486 | i586 | i686)
-  echo "==> x86 host ($arch): installing build tools"
-  $SUDO apt-get install -y cmake ninja-build
+  echo "==> x86 host ($arch): installing build tools and CUPS stack"
+  $SUDO apt-get install -y cmake ninja-build cups cups-filters ghostscript
   ;;
 armv6l | armv7l | armv8l | aarch64 | arm64)
-  echo "==> ARM host ($arch): installing the QEMU i386 runtime for Kyocera's x86 filter"
+  echo "==> ARM host ($arch): installing the CUPS stack and the QEMU i386 runtime for Kyocera's x86 filter"
   $SUDO dpkg --add-architecture i386
   $SUDO apt-get update
-  $SUDO apt-get install -y cmake ninja-build qemu-user-static \
+  $SUDO apt-get install -y cmake ninja-build cups cups-filters ghostscript qemu-user-static \
     libc6:i386 libcups2:i386 libcupsimage2:i386
   $SUDO ln -sf /lib/i386-linux-gnu/ld-linux.so.2 /lib/ld-linux.so.2
   ;;
