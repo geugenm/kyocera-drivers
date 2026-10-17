@@ -19,6 +19,9 @@ set(CT_RECORD_FONT_SIZE "16")
 set(CT_RECORD_IDLE "2")
 set(CT_RECORD_FPS "15")
 set(CT_RECORD_SESSIONS quickstart verify)
+# Pause before each command: the real run takes milliseconds, which plays as
+# a still frame; the pauses make the GIF readable.
+set(CT_RECORD_PAUSE "0.7")
 # Demo install prefix shown in the recordings (wiped and reinstalled).
 set(CT_DEMO_PREFIX "/tmp/kyocera-demo")
 # --- END CONFIG ---
@@ -43,11 +46,12 @@ if(NOT ct_asciinema OR NOT ct_agg)
     message(FATAL_ERROR "need asciinema + agg on PATH (cargo: ~/.cargo/bin)")
 endif()
 
-# Echo the command shell-style, live output (no capture, so the recording
-# shows the real terminal stream), automatic fatal error on failure —
-# no manual RESULT_VARIABLE checks.
+# Pause, echo the command shell-style, live output (no capture, so the
+# recording shows the real terminal stream), automatic fatal error on
+# failure — no manual RESULT_VARIABLE checks.
 function(ct_demo)
     list(JOIN ARGN " " ct_line)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep "${CT_RECORD_PAUSE}")
     execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "$ ${ct_line}")
     execute_process(
         COMMAND ${ARGN}
@@ -60,6 +64,7 @@ endfunction()
 # stderr and would drown the recording.
 function(ct_demo_quiet)
     list(JOIN ARGN " " ct_line)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep "${CT_RECORD_PAUSE}")
     execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "$ ${ct_line}")
     execute_process(
         COMMAND ${ARGN}

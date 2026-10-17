@@ -16,6 +16,6 @@ cargo install --git https://github.com/asciinema/agg  # .cast -> .gif
 cmake -P assets/casts/record.cmake  # re-records all, re-renders all GIFs
 ```
 
-All settings (theme, font size, idle cap, fps) live in the CONFIG block at the
-top of `record.cmake` — edit and re-run. Failures abort via FATAL_ERROR, so a
-finished run means all sessions exited 0.
+All settings (theme, font size, idle cap, fps, inter-command pause) live in
+the CONFIG block at the top of `record.cmake` — edit and re-run. Failures
+abort via FATAL_ERROR, so a finished run means all sessions exited 0.
