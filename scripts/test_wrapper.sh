@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Dispatch tests for proprietary/wrapper.sh — no CUPS, no printing.
-# The ARM QEMU success path needs the real i386 runtime; it is covered by
-# scripts/verify.sh on the test box. Here we check dispatch + failure modes.
+# The ARM QEMU success path needs the real i386 runtime; scripts/verify.sh
+# covers it on the test box. Here: dispatch, failure modes, and — where the
+# runtime exists — that the ARM path reaches qemu.
 set -euo pipefail
 
 root="$(cd "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -36,11 +37,31 @@ fake_arch i686
 out=$(run) || fail "i686 exited nonzero: $out"
 [[ $out == *rastertokpsl_x86* ]] || fail "i686 did not pick x86: $out"
 
+# The wrapper's ARM preflight depends on the host: where the QEMU runtime
+# is installed (the ARM test box) it passes and the wrapper hands the
+# non-i386 stub to qemu; elsewhere it must report the missing runtime.
 fake_arch armv7l
-if out=$(run); then
-  fail "armv7l without a QEMU runtime must fail: $out"
+qemu_ready=0
+for q in qemu-i386 qemu-i386-static; do
+  if command -v "$q" >/dev/null 2>&1; then
+    qemu_ready=1
+    break
+  fi
+done
+if [ "$qemu_ready" = 1 ] &&
+  [ -e /lib/ld-linux.so.2 ] &&
+  [ -e /usr/lib/i386-linux-gnu/libcups.so.2 ] &&
+  [ -e /usr/lib/i386-linux-gnu/libcupsimage.so.2 ]; then
+  if out=$(run); then
+    fail "armv7l stub unexpectedly ran: $out"
+  fi
+  [[ $out == *rastertokpsl_x86* ]] || fail "armv7l did not reach qemu: $out"
+else
+  if out=$(run); then
+    fail "armv7l without a QEMU runtime must fail: $out"
+  fi
+  [[ $out == *QEMU* ]] || fail "armv7l wrong error: $out"
 fi
-[[ $out == *QEMU* ]] || fail "armv7l wrong error: $out"
 
 fake_arch riscv64
 if out=$(run); then
