@@ -20,8 +20,23 @@ include(GNUInstallDirs)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(
         FATAL_ERROR
-        "This project supports Linux x86_64 only. Detected: ${CMAKE_SYSTEM_NAME}"
+        "This project supports Linux only. Detected: ${CMAKE_SYSTEM_NAME}"
     )
+endif()
+
+# ------------------------------------------------------------------
+# Host architecture
+# ------------------------------------------------------------------
+# Kyocera ships the proprietary rastertokpsl filter for x86/x86_64 only.
+# On other architectures (ARM boards, …) the build installs just the
+# dispatcher wrapper, which then falls back to the open-source
+# rastertokpsl-re filter — see the readme's ARM section.
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" KYOCERA_ARCH)
+
+if(KYOCERA_ARCH MATCHES "^(x86_64|amd64|x64)$")
+    set(KYOCERA_X86_64 ON)
+elseif(KYOCERA_ARCH MATCHES "^(i[3-6]86|x86)$")
+    set(KYOCERA_X86_32 ON)
 endif()
 
 # ------------------------------------------------------------------
@@ -128,6 +143,32 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CPACK_RESOURCE_FILE_WELCOME "${CMAKE_CURRENT_SOURCE_DIR}/readme.md")
 
     # ------------------------------------------------------------------
+    # Package architecture — derived from the host processor because the
+    # bundled binaries are x86-only; ARM builds package the wrapper (and
+    # users install rastertokpsl-re separately).
+    # ------------------------------------------------------------------
+    if(KYOCERA_X86_64)
+        set(KYOCERA_RPM_ARCH "x86_64")
+        set(KYOCERA_DEB_ARCH "amd64")
+    elseif(KYOCERA_X86_32)
+        set(KYOCERA_RPM_ARCH "i686")
+        set(KYOCERA_DEB_ARCH "i386")
+    elseif(KYOCERA_ARCH MATCHES "^(aarch64|arm64)$")
+        set(KYOCERA_RPM_ARCH "aarch64")
+        set(KYOCERA_DEB_ARCH "arm64")
+    elseif(KYOCERA_ARCH MATCHES "^(arm|armhf|armv[5-8](l|hl)?)$")
+        set(KYOCERA_RPM_ARCH "armv7hl")
+        set(KYOCERA_DEB_ARCH "armhf")
+    else()
+        message(
+            WARNING
+            "Unknown architecture '${CMAKE_SYSTEM_PROCESSOR}' — packages will be labeled with it as-is"
+        )
+        set(KYOCERA_RPM_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+        set(KYOCERA_DEB_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+
+    # ------------------------------------------------------------------
     # RPM
     # ------------------------------------------------------------------
     set(CPACK_RPM_PACKAGE_DESCRIPTION
@@ -135,7 +176,7 @@ if(PROJECT_IS_TOP_LEVEL)
     )
     set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
     set(CPACK_RPM_PACKAGE_GROUP "System/Printing")
-    set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
+    set(CPACK_RPM_PACKAGE_ARCHITECTURE "${KYOCERA_RPM_ARCH}")
 
     # Self-contained package: disable auto-dependency scanning so build-host
     # SONAMEs (e.g. Debian's libcups.so.2) never leak into Requires, and
@@ -159,7 +200,7 @@ if(PROJECT_IS_TOP_LEVEL)
     )
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "glebajk@gmail.com")
-    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${KYOCERA_DEB_ARCH}")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "cups, libc6")
 
     include(CPack)
