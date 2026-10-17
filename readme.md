@@ -50,13 +50,14 @@ sudo bash scripts/setup.sh
 [e-gleba/kyocera-drivers/releases](https://github.com/e-gleba/kyocera-drivers/releases/latest) carry `.deb`, `.rpm` and `.tar.gz`:
 
 ```bash
-sudo dpkg -i kyocera_drivers-*-Linux.deb   # Debian / Ubuntu
-sudo rpm -i kyocera_drivers-*-Linux.rpm    # Fedora / ALT Linux
+sudo dpkg -i kyocera_drivers-*-Linux.deb           # Debian / Ubuntu
+sudo rpm -i kyocera_drivers-*-Linux.rpm            # Fedora / ALT Linux
+sudo tar -C / -xzf kyocera_drivers-*-Linux.tar.gz  # any distro
 ```
 
 ### Manual from source
 
-Requires `cmake` ≥ 3.31 and `ninja`:
+Requires `cmake` ≥ 3.31 and `ninja` — nothing is compiled, so no compiler is needed:
 
 ```bash
 cmake --preset default
@@ -77,6 +78,20 @@ bash /usr/share/doc/kyocera_drivers/verify.sh   # from a release package
 
 It ends with e.g. `OK: armv7l produced 4 KB of KPSL — nothing sent to the printer`.
 
+The same check runs in a throwaway container — the image builds, installs into a clean Debian, verifies itself and exits:
+
+```bash
+docker build -t kyocera-drivers-test .
+```
+
+## Demo
+
+![Quickstart: configure, build, install, wrapper tests](assets/casts/quickstart.gif)
+
+![Verify: PPD raster through rastertokpsl, nothing printed](assets/casts/verify.gif)
+
+Recorded with asciinema — replay or re-record via [`assets/casts/`](assets/casts).
+
 ## ARM boards (Raspberry Pi, Orange Pi, …)
 
 `scripts/setup.sh` covers it; under the hood it installs the QEMU i386 runtime:
@@ -88,7 +103,18 @@ sudo apt install qemu-user-static libc6:i386 libcups2:i386 libcupsimage2:i386
 sudo ln -sf /lib/i386-linux-gnu/ld-linux.so.2 /lib/ld-linux.so.2
 ```
 
-Cost: a page rasterizes in ~2–3 s on an Orange Pi PC. aarch64 boards use the same commands.
+aarch64 boards use the same commands.
+
+## Field-tested setup
+
+Daily driver: an **Orange Pi PC** (Allwinner H3, armv7l) on **Armbian 26.11** (Debian 13 "trixie", kernel 6.18). The printer is USB-only, so the Pi is the CUPS server — remote jobs from wired PCs and Wi-Fi clients print through it at `http://192.168.1.28:631`. A page rasterizes in ~2–3 s.
+
+```mermaid
+flowchart LR
+    clients[LAN clients<br>PCs · Wi-Fi] --> sw[Switch / router]
+    sw -->|IPP :631| pi[Orange Pi PC<br>CUPS · Armbian]
+    pi -->|USB| pr[Kyocera FS-1020MFP]
+```
 
 ## Uninstall
 
@@ -114,7 +140,9 @@ flowchart LR
 
 | Symptom | Fix |
 |---|---|
-| `No such preset "default"` | CMake ≥ 3.31 required — check `cmake --version`. |
+| `cmake: command not found`, or `No such preset "default"` | Install the tools: `sudo apt install cmake ninja-build` — CMake ≥ 3.31 is required. |
+| `cupsfilter: command not found` | CUPS stack missing: `sudo apt install cups cups-filters ghostscript` (what `setup.sh` installs). |
+| Remote clients can't reach `http://192.168.1.28:631` | VPN active on the client or the Pi — disable it; it must not route the LAN. |
 | Filter stops with status 127, or `No such file or directory` in `error_log` | Stale/partial install. `sudo rm -f /usr/lib/cups/filter/rastertokpsl* /usr/local/lib/cups/filter/rastertokpsl*` and reinstall. |
 | `wrapper.sh: QEMU i386 runtime incomplete` | ARM host missing the QEMU prerequisites — run `scripts/setup.sh`. |
 | `wrapper.sh: unsupported architecture` | Host outside x86/ARM — open an issue with `uname -m`. |

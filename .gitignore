@@ -60,3 +60,6 @@ build/
 src/cups-2.1.1
 .cache/
 compile_commands.json
+
+# Demo recordings: .cast is an intermediate, .gif is the artifact.
+assets/casts/*.cast
