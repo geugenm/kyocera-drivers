@@ -8,10 +8,14 @@ project(
     LANGUAGES NONE
 )
 
-# GNUInstallDirs requires an enabled language to derive the target
-# architecture for its libdir heuristic. A throwaway C language is enabled
-# solely to keep that detection working; nothing is compiled.
-enable_language(C)
+# Nothing is compiled and no language is enabled, so GNUInstallDirs cannot
+# derive libdir from a target architecture. Pin it to the plain FHS default
+# instead: configuring this packaging-only project must not require a C
+# compiler.
+set(CMAKE_INSTALL_LIBDIR
+    "lib"
+    CACHE PATH "Install path for CMake package files (architecture-independent)"
+)
 include(GNUInstallDirs)
 
 # ------------------------------------------------------------------
@@ -152,6 +156,11 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CPACK_RESOURCE_FILE_README  "${CMAKE_CURRENT_SOURCE_DIR}/readme.md")
     set(CPACK_RESOURCE_FILE_WELCOME "${CMAKE_CURRENT_SOURCE_DIR}/readme.md")
 
+    # Stage every generator under /usr. DEB and RPM default to it anyway;
+    # without this TGZ alone would stay root-relative (lib/, share/) and
+    # extract to the wrong places. `tar -C /` then matches .deb/.rpm.
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+
     # ------------------------------------------------------------------
     # Package architecture — derived from the host processor instead of
     # hardcoding x86_64/amd64.
@@ -210,7 +219,11 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "glebajk@gmail.com")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${KYOCERA_DEB_ARCH}")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "cups, libc6")
+
+    # rastertokpsl_* link libcupsimage.so.2, which `cups` does not pull in
+    # on Debian 13. The t64 name is trixie+/noble+; the plain name covers
+    # older releases.
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "cups, libc6, libcupsimage2t64 | libcupsimage2")
 
     include(CPack)
 endif()
