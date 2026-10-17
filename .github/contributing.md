@@ -16,7 +16,7 @@ Verify changes before committing:
 
 ```bash
 bash -n scripts/*.sh proprietary/wrapper.sh
-bash scripts/test-wrapper.sh      # wrapper dispatch tests
+bash scripts/test_wrapper.sh      # wrapper dispatch tests
 bash scripts/verify.sh            # end-to-end check, never prints
 ```
 
@@ -55,7 +55,7 @@ Before requesting review, verify:
 
 - [ ] The branch is rebased on the latest `master`
 - [ ] `bash -n` passes on every touched script
-- [ ] `bash scripts/test-wrapper.sh` passes
+- [ ] `bash scripts/test_wrapper.sh` passes
 - [ ] `bash scripts/verify.sh` passes (never sends anything to a printer)
 - [ ] `cmake --preset default && cmake --install build/default --prefix=/tmp/kd-check` installs the expected files for x86_64 and ARM-simulated builds
 - [ ] Markdown files render correctly on GitHub
