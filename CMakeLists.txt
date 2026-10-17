@@ -27,10 +27,10 @@ endif()
 # ------------------------------------------------------------------
 # Host architecture
 # ------------------------------------------------------------------
-# Kyocera ships the proprietary rastertokpsl filter for x86/x86_64 only.
-# On other architectures (ARM boards, …) the build installs just the
-# dispatcher wrapper, which then falls back to the open-source
-# rastertokpsl-re filter — see the readme's ARM section.
+# Kyocera ships the proprietary rastertokpsl filter for x86 only. The
+# x86 binary installs everywhere: natively on 32-bit x86 and through
+# qemu-i386 on ARM (see the readme's ARM section); the x86_64 binary
+# installs on x86_64 hosts only.
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" KYOCERA_ARCH)
 
 if(KYOCERA_ARCH MATCHES "^(x86_64|amd64|x64)$")
@@ -143,9 +143,8 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CPACK_RESOURCE_FILE_WELCOME "${CMAKE_CURRENT_SOURCE_DIR}/readme.md")
 
     # ------------------------------------------------------------------
-    # Package architecture — derived from the host processor because the
-    # bundled binaries are x86-only; ARM builds package the wrapper (and
-    # users install rastertokpsl-re separately).
+    # Package architecture — derived from the host processor instead of
+    # hardcoding x86_64/amd64.
     # ------------------------------------------------------------------
     if(KYOCERA_X86_64)
         set(KYOCERA_RPM_ARCH "x86_64")

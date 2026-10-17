@@ -10,7 +10,7 @@
 [![▶ Run Package](https://img.shields.io/badge/▶_Run-Package-2088FF?logo=github-actions&logoColor=white)](https://github.com/e-gleba/kyocera-drivers/actions/workflows/package.yml)
 [![▶ Run Release](https://img.shields.io/badge/▶_Run-Release-2088FF?logo=github-actions&logoColor=white)](https://github.com/e-gleba/kyocera-drivers/actions/workflows/release.yml)
 
-Proprietary Kyocera `rastertokpsl` filter and legacy PPDs, packaged for modern Linux CUPS. No compiled code — CMake/CPack packaging only. Linux x86_64; on ARM the wrapper dispatches to the open-source `rastertokpsl-re` filter ([details](#arm-and-other-architectures)).
+Proprietary Kyocera `rastertokpsl` filter and legacy PPDs, packaged for modern Linux CUPS. No compiled code — CMake/CPack packaging only. Linux x86_64; on ARM the wrapper runs Kyocera's x86 binary through QEMU ([details](#arm-and-other-architectures)).
 
 **Supported:** FS-1020MFP · FS-1025MFP · FS-1040 · FS-1060DN · FS-1120MFP · FS-1125MFP (GDI).
 
@@ -47,17 +47,27 @@ Then add the printer at <http://localhost:631> and select the Kyocera PPD matchi
 
 ### ARM and other architectures
 
-Kyocera ships the proprietary `rastertokpsl` filter exclusively for x86 and x86_64, so those binaries cannot run on ARM boards (Raspberry Pi, Orange Pi, …). On such hosts CMake installs only the dispatcher wrapper, which then executes the open-source [rastertokpsl-re](https://github.com/Fe-Ti/rastertokpsl-re) filter — build it natively and place it next to the wrapper:
+Kyocera's filter binary is closed-source and shipped **for x86 only** — there is no ARM build. On ARM boards (Raspberry Pi, Orange Pi, …) the wrapper runs Kyocera's 32-bit x86 binary through QEMU:
 
 ```bash
-sudo apt install build-essential cmake ninja-build libcups2-dev libcupsimage2-dev
+sudo dpkg --add-architecture i386
+sudo apt update
+sudo apt install qemu-user-static libc6:i386 libcups2:i386 libcupsimage2:i386
+sudo ln -sf /lib/i386-linux-gnu/ld-linux.so.2 /lib/ld-linux.so.2   # loader path QEMU needs
+```
+
+Then install from source as usual — every architecture receives the wrapper and the x86 binary, and the wrapper detects the QEMU runtime automatically. Printing runs at interactive speed (a page rasterizes in a few seconds on slow boards).
+
+If the QEMU runtime is unavailable, the wrapper falls back to the open-source [rastertokpsl-re](https://github.com/Fe-Ti/rastertokpsl-re) filter when installed as `rastertokpsl-re` next to the wrapper (or in `PATH`). It speaks the same KPSL protocol and needs no emulation:
+
+```bash
 git clone https://github.com/Fe-Ti/rastertokpsl-re.git
-cmake -S rastertokpsl-re -B rastertokpsl-re/build
+cmake -S rastertokpsl-re -B rastertokpsl-re/build -DCMAKE_C_FLAGS="-D_GNU_SOURCE -Wl,--no-as-needed"
 cmake --build rastertokpsl-re/build --target rastertokpsl-re
 sudo install -m 0755 rastertokpsl-re/bin/rastertokpsl-re /usr/lib/cups/filter/rastertokpsl-re
 ```
 
-Do not run rastertokpsl-re's own `install.sh` — it overwrites the wrapper; installing the binary beside it is enough. The wrapper prefers `rastertokpsl-re` whenever it is present (same directory or in `PATH`), and falls back to the architecture-native proprietary binary otherwise.
+(The `-D_GNU_SOURCE -Wl,--no-as-needed` flags work around upstream build issues with GCC 14+ and `--as-needed` linkers.) Do not run rastertokpsl-re's own `install.sh` — it overwrites the dispatcher wrapper.
 
 ## Uninstall
 
@@ -83,7 +93,7 @@ flowchart LR
 | Symptom | Fix |
 |---|---|
 | `rastertokpsl_amd64: No such file or directory`, filter stops with status 127 | Stale wrapper from an older release. `sudo rm -f /usr/lib/cups/filter/rastertokpsl* /usr/local/lib/cups/filter/rastertokpsl*`, then reinstall. |
-| `wrapper.sh: unsupported architecture`, or filter exits 1 on ARM | x86-only install running on an ARM host. Install from source and build `rastertokpsl-re` — see [ARM and other architectures](#arm-and-other-architectures). |
+| `wrapper.sh: unsupported architecture`, or filter exits 1 on ARM | Install from source and set up the QEMU i386 runtime (or install `rastertokpsl-re`) — see [ARM and other architectures](#arm-and-other-architectures). |
 | `No such preset "default"` | CMake ≥ 3.31 required — check `cmake --version`. |
 | Filter errors at runtime | `sudo tail -f /var/log/cups/error_log` |
 | Wrong page size or orientation | Selected PPD does not match the exact printer model. |
@@ -114,7 +124,7 @@ sudo grep -E 'crashed|signal' /var/log/cups/error_log
 # → "rastertokpsl) crashed on signal 11" or "stopped with status 1"
 ```
 
-**Fix:** replace the proprietary filter with the reverse-engineered open-source [rastertokpsl-re](https://github.com/Fe-Ti/rastertokpsl-re) (packaged in ALT Linux Sisyphus as `rastertokpsl-re`). Install its binary as `/usr/lib/cups/filter/rastertokpsl-re` next to the wrapper — the wrapper prefers it over the proprietary binary.
+**Fix:** replace the proprietary filter with the reverse-engineered open-source [rastertokpsl-re](https://github.com/Fe-Ti/rastertokpsl-re) (packaged in ALT Linux Sisyphus as `rastertokpsl-re`; its installer replaces `/usr/lib/cups/filter/rastertokpsl`). It handles UTF-8 job titles correctly.
 
 > [!NOTE]
 > The bundled `wrapper.sh` sanitizes the job title and forces `LC_ALL=C`, so non-ASCII bytes never reach Kyocera's binary. The crash itself is in Kyocera's binary, not the wrapper.
