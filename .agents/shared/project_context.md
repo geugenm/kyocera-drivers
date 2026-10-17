@@ -7,7 +7,8 @@ written here.
 ## Fact sheet
 
 - Field-test box: Orange Pi PC (armv7l, Armbian/Debian 13), CUPS queue
-  `FS-1020MFP` over USB; SSH access is configured out-of-band (ask the user).
+  `FS-1020MFP` over USB. LAN clients (PCs, Wi-Fi) print over IPP; a VPN on
+  either side breaks that route. SSH access is out-of-band (ask the user).
 - Kyocera ships only i386/x86_64 `rastertokpsl` — no ARM build exists. On ARM
   the wrapper runs the 32-bit binary via `qemu-i386`, with Debian multiarch
   i386 `libcups*` and the `/lib/ld-linux.so.2` loader symlink.
@@ -20,6 +21,12 @@ written here.
 - Known crash: non-ASCII job titles abort the binary and the printer hangs
   until a power cycle. The wrapper strips titles to ASCII and sets `LC_ALL=C`.
 - QEMU cost: ~2–3 s per A4 page rasterized on the Orange Pi PC.
+- Configure/install needs no compiler (`LANGUAGES NONE`, GNUInstallDirs libdir
+  pinned); `setup.sh` installs no toolchain.
+- CPack stages every generator under `/usr`; DEB depends include
+  `libcupsimage2t64 | libcupsimage2` (the filter links `libcupsimage.so.2`).
+- `assets/casts/` — demo GIFs (asciinema + agg, `cmake -P assets/casts/record.cmake`);
+  `.cast` files are git-ignored, GIFs are committed and embedded in the readme.
 - `rastertokpsl-re` is deliberately out of this project — do not reintroduce
   it in code, docs, or fallbacks.
 

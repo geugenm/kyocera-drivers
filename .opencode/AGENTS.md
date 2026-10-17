@@ -20,7 +20,9 @@ code. Think first. Minimal diff. Verify with `scripts/verify.sh` (never prints).
 - `ppd/English/` — original Kyocera PPDs (OpenPrinting archive copies), installed to `share/cups/model`.
 - `scripts/setup.sh` — one-shot: prerequisites, build, install, CUPS restart, verify. On ARM also installs the QEMU i386 runtime.
 - `scripts/verify.sh` — non-printing end-to-end check (raster → KPSL magic/size). Installed into the package docdir.
-- `scripts/test-wrapper.sh` — dispatch tests for the wrapper (stub binaries, fake `uname`).
+- `scripts/test_wrapper.sh` — dispatch tests for the wrapper (stub binaries, fake `uname`).
+- `Dockerfile` — clean-container build + `verify.sh` (never prints).
+- `assets/casts/` — demo GIFs (asciinema + agg, `record.cmake`); `*.cast` ignored, GIFs committed.
 - `.github/workflows/` — `package.yml`, `release.yml`.
 
 ## Wrapper (`proprietary/wrapper.sh`)
@@ -29,18 +31,20 @@ code. Think first. Minimal diff. Verify with `scripts/verify.sh` (never prints).
 - ARM preflight: `qemu-i386`/`-static` in PATH, `/lib/ld-linux.so.2`, i386 `libcups.so.2` + `libcupsimage.so.2`. Error text points to `scripts/setup.sh`.
 - Always `LC_ALL=C` + ASCII-only job title (`tr -cd '[:alnum:]'`) — non-ASCII titles crash Kyocera's binary.
 - Resolve filters from the wrapper's own directory, never from a baked-in prefix. CUPS arg order: file, user, title, copies, options.
-- Bash strict mode everywhere; `bash -n` + `scripts/test-wrapper.sh` before commit.
+- Bash strict mode everywhere; `bash -n` + `scripts/test_wrapper.sh` before commit.
 
 ## CMake
 
 - Packaging only. `KYOCERA_*` cache vars; host arch from `CMAKE_SYSTEM_PROCESSOR` (`KYOCERA_X86_64` / `KYOCERA_X86_32`).
+- `project(... LANGUAGES NONE)` — configure must stay compiler-free; GNUInstallDirs libdir is pinned to `lib`.
+- CPack: all generators stage under `/usr`; DEB depends must include `libcupsimage2t64 | libcupsimage2`.
 - Install rules: wrapper everywhere; x86 binary everywhere (needed for QEMU on ARM); amd64 x86_64-only; `verify.sh` into the docdir.
 - CPack arch mapping derives from the host arch — never hardcode (armv7l → `armhf`/`armv7hl`, aarch64 → `arm64`/`aarch64`).
 - Every install-rule change must be checked on x86_64 **and** ARM-simulated (`-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=armv7l`; a bare `CMAKE_SYSTEM_PROCESSOR` override is ignored by native detection).
 
 ## Verify loop
 
-1. `bash -n` on every touched script; `scripts/test-wrapper.sh`.
+1. `bash -n` on every touched script; `scripts/test_wrapper.sh`.
 2. Packaging: `cmake -S . -B /tmp/kd -G Ninja` + `cmake --install /tmp/kd --prefix /tmp/kd-out`; check `lib/cups/filter/`.
 3. Test box (armv7l Orange Pi, SSH): `git pull`, `sudo bash scripts/setup.sh`, then `bash scripts/verify.sh`.
 4. **Never print** — no `lp`/`lpr` unless the user explicitly asks for paper. `scripts/verify.sh` covers everything up to the backend.
