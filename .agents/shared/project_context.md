@@ -25,7 +25,7 @@ written here.
   pinned); `setup.sh` installs no toolchain.
 - CPack stages every generator under `/usr`; DEB depends include
   `libcupsimage2t64 | libcupsimage2` (the filter links `libcupsimage.so.2`).
-- `assets/casts/` — demo GIFs (asciinema + agg, `cmake -P assets/casts/record.cmake`);
+- `.github/casts/` — demo GIFs (asciinema + agg, `cmake -P .github/casts/record.cmake`);
   `.cast` files are git-ignored, GIFs are committed and embedded in the readme.
 - `rastertokpsl-re` is deliberately out of this project — do not reintroduce
   it in code, docs, or fallbacks.

@@ -1,13 +1,13 @@
 # Demo sessions: record with asciinema, render GIFs with agg.
 #
 # Usage (from repo root):
-#   cmake -P assets/casts/record.cmake
+#   cmake -P .github/casts/record.cmake
 #
 # Run a single session (used internally as the recorded command):
-#   cmake -Dct_session=quickstart -P assets/casts/record.cmake
+#   cmake -Dct_session=quickstart -P .github/casts/record.cmake
 #
 # Replay without re-recording:
-#   asciinema play assets/casts/quickstart.cast
+#   asciinema play .github/casts/quickstart.cast
 #
 # Needs asciinema + agg on PATH (cargo installs live in ~/.cargo/bin).
 # Edit CONFIG and re-run to recreate everything.
@@ -30,7 +30,7 @@ set(CT_DEMO_PREFIX "/tmp/kyocera-demo")
 # --- END CONFIG ---
 
 get_filename_component(ct_root "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-set(ct_casts "${ct_root}/assets/casts")
+set(ct_casts "${ct_root}/.github/casts")
 
 if(WIN32)
     set(ct_cargo_bin "$ENV{USERPROFILE}/.cargo/bin")

@@ -22,7 +22,7 @@ code. Think first. Minimal diff. Verify with `scripts/verify.sh` (never prints).
 - `scripts/verify.sh` — non-printing end-to-end check (raster → KPSL magic/size). Installed into the package docdir.
 - `scripts/test_wrapper.sh` — dispatch tests for the wrapper (stub binaries, fake `uname`).
 - `Dockerfile` — clean-container build + `verify.sh` (never prints).
-- `assets/casts/` — demo GIFs (asciinema + agg, `record.cmake`); `*.cast` ignored, GIFs committed.
+- `.github/casts/` — demo GIFs (asciinema + agg, `record.cmake`); `*.cast` ignored, GIFs committed.
 - `.github/workflows/` — `package.yml`, `release.yml`.
 
 ## Wrapper (`proprietary/wrapper.sh`)

@@ -13,7 +13,7 @@ GIFs are embedded in the root readme; `.cast` files replay with `asciinema play`
 sudo dnf install asciinema        # recorder (Debian/Ubuntu: sudo apt install asciinema)
 cargo install --git https://github.com/asciinema/agg  # .cast -> .gif
 
-cmake -P assets/casts/record.cmake  # re-records all, re-renders all GIFs
+cmake -P .github/casts/record.cmake  # re-records all, re-renders all GIFs
 ```
 
 All settings (theme, font size, idle cap, fps, inter-command pause, final
