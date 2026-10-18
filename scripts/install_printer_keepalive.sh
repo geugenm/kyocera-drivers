@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install_printer_keepalive.sh — install the Kyocera "printer not turning
+# install-printer-keepalive.sh — install the Kyocera "printer not turning
 # off" daemon on this host: a USB keepalive (oneshot service + timer).
 #
 # Installs:
@@ -10,8 +10,8 @@
 #   /etc/modules-load.d/kyocera-keepalive.conf     loads usblp at boot
 #   /etc/udev/rules.d/69-kyocera-keepalive.rules   never autosuspend printer
 #
-# Usage: sudo ./install_printer_keepalive.sh
-# Optional interval: KEEPALIVE_INTERVAL=5min sudo -E ./install_printer_keepalive.sh
+# Usage: sudo ./install-printer-keepalive.sh
+# Optional interval: KEEPALIVE_INTERVAL=5min sudo -E ./install-printer-keepalive.sh
 
 set -euo pipefail
 
@@ -98,34 +98,39 @@ fi
 
 cat >"${BIN}" <<'EOF_KEEPALIVE'
 #!/usr/bin/env bash
-# kyocera-keepalive — nudge the Kyocera FS-1020MFP over USB so an idle
-# printer never ends up in the un-wakeable deep-sleep state.
+# kyocera-keepalive — keep the Kyocera FS-1020MFP out of its un-wakeable
+# deep-sleep state on USB.
 #
-# Sends one empty PJL JOB envelope per run: the exact UEL/@PJL JOB/EOJ
-# framing the Kyocera KPSL driver wraps around every print job, but with
-# no raster payload — zero pages to printable, yet the firmware counts it
-# as print activity and resets its idle timer.
+# Two tools, both paper-free:
+#   1. every run sends an empty PJL JOB envelope (the exact UEL/@PJL framing
+#      Kyocera's driver uses around every job) — keeps the interpreter warm,
+#   2. when the usb link has been up for REFRESH_MIN minutes (firmware drops
+#      the link itself ~60 min after any (re)bind, sometimes staying dead for
+#      hours), the daemon re-enumerates the port host-side (authorized 0->1).
+#      A planned few-second blip replaces the firmware's unplanned blackout.
 #
-# If the poke fails, the run scans the usb bus (lpinfo) for the printer
-# and, when configured, force-re-enumerates it host-side (authorized
-# 0 -> 1) before retrying the poke once.
+# On any poke failure it rescans the bus (lpinfo), re-enumerates the port and
+# retries once — that is the same recovery used by manual power cycles of the
+# usb cable, except automated.
 set -euo pipefail
 
 device="${KYOCERA_KEEPALIVE_DEVICE:-/dev/usb/lp0}"
 queue="${KYOCERA_KEEPALIVE_QUEUE:-FS-1020MFP}"
 want_read="${KYOCERA_KEEPALIVE_READ:-1}"
 auto_recover="${KYOCERA_KEEPALIVE_AUTO_RECOVER:-1}"
+refresh_min="${KYOCERA_KEEPALIVE_REFRESH_MIN:-45}"
 
 probe_bytes=$'\x1b%-12345X@PJL\r\n@PJL JOB NAME = "keepalive"\r\n@PJL INFO STATUS\r\n@PJL RDYMSG DISPLAY = ""\r\n@PJL EOJ\r\n\x1b%-12345X'
 
 if [ ! -e "${device}" ]; then
-    fallback="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
-    if [ -n "${fallback}" ]; then
-        device="${fallback}"
-    fi
+    device="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
+fi
+if [ -z "${device}" ] || [ ! -e "${device}" ]; then
+    echo "no /dev/usb/lp* node; printer unplugged?" >&2
+    exit 1
 fi
 if [ ! -w "${device}" ]; then
-    echo "${device}: no accessible usb printer node (usblp loaded? printer plugged in?)" >&2
+    echo "${device}: not writable (usblp loaded? user perms?)" >&2
     exit 1
 fi
 
@@ -137,7 +142,7 @@ if [ -n "${pending}" ]; then
 fi
 
 # udevadm reports syspaths without the /sys prefix; walk up to the usb
-# device dir that carries idVendor/idProduct.
+# device dir that carries the class attributes.
 usb_device_dir() {
     local syspath dir i
     syspath="$(udevadm info -q path --name="$1" 2>/dev/null || true)"
@@ -155,14 +160,13 @@ usb_device_dir() {
     return 1
 }
 
-# One empty-job poke; success requires the usb write to complete.
+# Empty-job poke; success = the usb write completed.
 poke() {
-    local dev="$1" reply=""
+    local dev="$1" reply="" ok=0
     if ! exec 3<>"${dev}"; then
-        echo "${dev}: cannot open usb printer node (backend busy?)" >&2
+        echo "${dev}: cannot open usb printer node" >&2
         return 1
     fi
-    ok=0
     if timeout 8s bash -c 'printf "%s" "$1" >&3 2>/dev/null' _ "${probe_bytes}"; then
         ok=1
     fi
@@ -183,20 +187,22 @@ poke() {
     return 1
 }
 
-# What does the usb bus itself say about the printer right now? (diagnostic
-# scan; also wakes a lightly wedged device by reading its device id)
+# What the usb bus currently reports about the printer (diagnostic; a read
+# of the device id also nudges a lightly wedged interface).
 scan() {
-    lpinfo -v 2>/dev/null | grep -i kyocera || echo "scan: Kyocera not enumerated on the usb bus right now" >&2
+    lpinfo -v 2>/dev/null | grep -i kyocera || echo "scan: Kyocera not on the usb bus right now" >&2
 }
 
-# Host-side re-enumeration of a wedged printer port (authorized 0 -> 1).
-recover() {
+# Host-side re-enumeration (authorized 0 -> 1). Re-creates the usblp node,
+# which also resets the port's "link age" clock.
+reenumerate() {
     local authorized
     authorized="$(usb_device_dir "$1" 2>/dev/null || true)/authorized"
     if [ ! -e "${authorized}" ]; then
+        echo "cannot re-enumerate: device dir for $1 not found" >&2
         return 1
     fi
-    echo "attempting host-side usb re-enumeration of the printer port" >&2
+    echo "host-side re-enumeration of the printer port" >&2
     echo 0 >"${authorized}" || true
     sleep 2
     echo 1 >"${authorized}" || true
@@ -204,25 +210,34 @@ recover() {
     return 0
 }
 
+# Before the firmware's ~60-min idle fuse blows, refresh the link at
+# a time of our choosing (planned blip) instead of at its whim.
+refresh_if_due() {
+    local dev="$1" age
+    [ "${refresh_min}" -gt 0 ] || return 0
+    age="$(( ($(date +%s) - $(stat -c %Y "$dev" 2>/dev/null || date +%s)) / 60 ))"
+    [ "${age}" -ge "${refresh_min}" ] || return 0
+    echo "usb link ${age} min old — refreshing it now" >&2
+    reenumerate "${dev}" || true
+    return 0
+}
+
 if poke "${device}"; then
+    refresh_if_due "${device}"
     exit 0
 fi
 
-# Failure path: rescan the bus, optionally re-enumerate the port and
-# retry the poke once with a freshly bound node.
+# Failure path: rescan, re-enumerate and retry once with the fresh node.
 echo "rescanning usb bus for the printer" >&2
 scan
-
 fresh="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
 [ -n "${fresh}" ] && device="${fresh}"
-
-if [ "${auto_recover}" = "1" ] && recover "${device}" && [ -e "${device}" ]; then
-    if poke "${device}"; then
-        echo "keepalive recovered after usb re-enumeration"
+if [ "${auto_recover}" = "1" ] && [ -e "${device}" ]; then
+    if reenumerate "${device}" && [ -e "${device}" ] && poke "${device}"; then
+        echo "keepalive recovered after host-side re-enumeration"
         exit 0
     fi
 fi
-
 echo "printer is not responding; will retry next cycle" >&2
 exit 1
 EOF_KEEPALIVE
@@ -237,6 +252,9 @@ KYOCERA_KEEPALIVE_QUEUE=${queue}
 KYOCERA_KEEPALIVE_READ=1
 # 1 = on usb write failure, re-scan the bus and re-enumerate the port, 0 = off
 KYOCERA_KEEPALIVE_AUTO_RECOVER=1
+# Refresh the usb link (planned re-enumeration) when it is older than this,
+# before the firmware's ~60-min idle fuse blows. 0 disables the refresh.
+KYOCERA_KEEPALIVE_REFRESH_MIN=45
 EOF_DEFAULTS
 
 cat >"${SVC}" <<'EOF_SERVICE'
@@ -303,7 +321,8 @@ echo "printer keepalive installed:"
 echo "  printer: ${lp_device} (usb ${usb_vendor:-?}:${usb_product:-?})"
 echo "  queue:   ${queue}"
 echo "  probe:   every ${interval} (empty PJL job envelope, nothing printable)"
-echo "  remove:  sudo $(dirname "$0")/uninstall_printer_keepalive.sh"
+echo "  link:    re-enumerated host-side above ${KEEPALIVE_REFRESH_MIN:-45} min of age"
+echo "  remove:  sudo $(dirname "$0")/uninstall-printer-keepalive.sh"
 echo "checks:"
 echo "  systemctl list-timers kyocera-keepalive.timer"
 echo "  journalctl -u kyocera-keepalive -n 20"
