@@ -118,7 +118,7 @@ device="${KYOCERA_KEEPALIVE_DEVICE:-/dev/usb/lp0}"
 queue="${KYOCERA_KEEPALIVE_QUEUE:-FS-1020MFP}"
 want_read="${KYOCERA_KEEPALIVE_READ:-1}"
 auto_recover="${KYOCERA_KEEPALIVE_AUTO_RECOVER:-1}"
-refresh_min="${KYOCERA_KEEPALIVE_REFRESH_MIN:-45}"
+refresh_min="${KYOCERA_KEEPALIVE_REFRESH_MIN:-30}"
 
 probe_bytes=$'\x1b%-12345X@PJL\r\n@PJL JOB NAME = "keepalive"\r\n@PJL INFO STATUS\r\n@PJL RDYMSG DISPLAY = ""\r\n@PJL EOJ\r\n\x1b%-12345X'
 
@@ -254,7 +254,7 @@ KYOCERA_KEEPALIVE_READ=1
 KYOCERA_KEEPALIVE_AUTO_RECOVER=1
 # Refresh the usb link (planned re-enumeration) when it is older than this,
 # before the firmware's ~60-min idle fuse blows. 0 disables the refresh.
-KYOCERA_KEEPALIVE_REFRESH_MIN=45
+KYOCERA_KEEPALIVE_REFRESH_MIN=30
 EOF_DEFAULTS
 
 cat >"${SVC}" <<'EOF_SERVICE'
@@ -321,7 +321,7 @@ echo "printer keepalive installed:"
 echo "  printer: ${lp_device} (usb ${usb_vendor:-?}:${usb_product:-?})"
 echo "  queue:   ${queue}"
 echo "  probe:   every ${interval} (empty PJL job envelope, nothing printable)"
-echo "  link:    re-enumerated host-side above ${KEEPALIVE_REFRESH_MIN:-45} min of age"
+echo "  link:    re-enumerated host-side above ${KEEPALIVE_REFRESH_MIN:-30} min of age"
 echo "  remove:  sudo $(dirname "$0")/uninstall-printer-keepalive.sh"
 echo "checks:"
 echo "  systemctl list-timers kyocera-keepalive.timer"
