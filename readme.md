@@ -23,27 +23,25 @@ Original PPDs and Kyocera's proprietary `rastertokpsl` filter for the 2012-era G
 The printers still work; their Linux support didn't survive:
 
 - **The drivers are gone.** Kyocera moved to a universal driver and [no longer distributes](#notice) the per-model Linux packages — this repo bundles the originals and installs them where CUPS expects them.
-- **The filter binary is x86-only.** Closed-source, shipped for i386/x86_64 only; ARM boards (Raspberry Pi, Orange Pi, …) cannot run it natively.
-- **It crashes on non-ASCII job titles** (e.g. Cyrillic): the binary aborts mid-job and the printer hangs in "Processing" until a power cycle.
+- **The filter binary is x86-only.** Closed-source, shipped for i386/x86_64 only; ARM boards (Raspberry Pi, Orange Pi, …) run it through `qemu-i386` via the QEMU runtime from `scripts/setup.sh`.
+- **It crashes on non-ASCII job titles** (e.g. Cyrillic): the binary aborts mid-job and the printer hangs in "Processing" until a power cycle. The wrapper strips titles to ASCII and forces `LC_ALL=C`.
 - **It predates modern CUPS filter plumbing.**
 
-The bundled wrapper (installed as `rastertokpsl`) bridges all four:
+All of that is bridged by one small Bash wrapper, installed as `rastertokpsl`: it picks the binary per machine, sanitizes the job title, and resolves filters relative to its own location.
 
-- picks the right binary per machine — natively on x86, through `qemu-i386` on ARM;
-- strips the job title to ASCII and forces `LC_ALL=C` — the crash-inducing bytes never reach the binary;
-- resolves filters relative to its own location, so any install prefix works.
-
-## Install
+## Quick start
 
 ### One-shot (from a checkout)
 
-[`scripts/setup.sh`](scripts/setup.sh) does everything — prerequisites (incl. the ARM QEMU runtime), build, install, CUPS restart, then a non-printing verification:
+[`scripts/setup.sh`](scripts/setup.sh) does everything: prerequisites (incl. the ARM QEMU runtime), install, CUPS restart, then a non-printing verification:
 
 ```bash
 git clone https://github.com/e-gleba/kyocera-drivers.git
 cd kyocera-drivers
 sudo bash scripts/setup.sh
 ```
+
+Only `cmake` and `ninja-build` are needed beyond the CUPS stack — nothing is compiled.
 
 ### Release packages
 
@@ -56,8 +54,6 @@ sudo tar -C / -xzf kyocera_drivers-*-Linux.tar.gz  # any distro
 ```
 
 ### Manual from source
-
-Requires `cmake` ≥ 3.31 and `ninja` — nothing is compiled, so no compiler is needed:
 
 ```bash
 cmake --preset default
@@ -76,9 +72,7 @@ bash scripts/verify.sh                          # from a checkout
 bash /usr/share/doc/kyocera_drivers/verify.sh   # from a release package
 ```
 
-It ends with e.g. `OK: armv7l produced 4 KB of KPSL — nothing sent to the printer`.
-
-The same check runs in a throwaway container — the image builds, installs into a clean Debian, verifies itself and exits:
+It ends with e.g. `OK: armv7l produced 3 KB of KPSL — nothing sent to the printer`. The same check runs in a throwaway container — the image builds, installs into a clean Debian, verifies itself:
 
 ```bash
 docker build -t kyocera-drivers-test .
@@ -86,11 +80,11 @@ docker build -t kyocera-drivers-test .
 
 ## Demo
 
-![Quickstart: configure, build, install, wrapper tests](assets/casts/quickstart.gif)
+![Quickstart: configure, build, install, wrapper tests](.github/casts/quickstart.gif)
 
-![Verify: PPD raster through rastertokpsl, nothing printed](assets/casts/verify.gif)
+![Verify: PPD raster through rastertokpsl, nothing printed](.github/casts/verify.gif)
 
-Recorded with asciinema — replay or re-record via [`assets/casts/`](assets/casts).
+Recorded with asciinema — replay or re-record via [.github/casts](.github/casts/readme.md).
 
 ## ARM boards (Raspberry Pi, Orange Pi, …)
 
@@ -105,9 +99,9 @@ sudo ln -sf /lib/i386-linux-gnu/ld-linux.so.2 /lib/ld-linux.so.2
 
 aarch64 boards use the same commands.
 
-## Field-tested setup
+## The print server
 
-Daily driver: an **Orange Pi PC** (Allwinner H3, armv7l) on **Armbian 26.11** (Debian 13 "trixie", kernel 6.18). The printer is USB-only, so the Pi is the CUPS server — remote jobs from wired PCs and Wi-Fi clients print through it at `http://192.168.1.28:631`. A page rasterizes in ~2–3 s.
+Daily driver: an **Orange Pi PC** (Allwinner H3, armv7l) on **Armbian 26.11** (Debian 13, kernel 6.18). The FS-1020MFP is USB-only, so the Pi is the CUPS server and LAN clients reach it over the network. A page rasterizes in ~2–3 s.
 
 ```mermaid
 flowchart LR
@@ -116,11 +110,45 @@ flowchart LR
     pi -->|USB| pr[Kyocera FS-1020MFP]
 ```
 
-## Windows clients
+| | |
+|---|---|
+| Server | `orangepipc` — `ssh egleba@192.168.1.28`, Armbian 26.11 |
+| Queue | `FS-1020MFP` at `http://orangepipc.local:631/printers/FS-1020MFP` |
+| Linux clients | [Connect a Linux client](#connect-a-linux-client-kde) |
+| Windows clients | [Connect a Windows client](#connect-a-windows-client) |
+| It won't wake | [Printer sleep](#printer-sleep) |
 
-Kyocera still distributes a full Windows driver stack for this printer family: the [downloads page](https://www.kyoceradocumentsolutions.ru/ru/support/downloads.name-L3J1L3J1L21mcC9UQVNLQUxGQTIwMjE=.html) generates a personal download link — grab the client-tool package it offers, install it once, then point Windows at the queue the print server shares (`\\orangepipc\fs-1020mfp`) and let it use the just-installed driver.
+## Connect a Linux client (KDE)
 
-This repo deliberately ships no host-side keepalive (the daemon experiment was retired — no host-side traffic could stop the device's deep-sleep drop). If deep sleep gets in the way, set the printer's own sleep timer to its maximum (up to ~1 week) from the Kyocera client tool's device settings; jobs queued on the server simply print when the device wakes.
+System Settings → **Printers → Add → Network** — the queue announces itself over mDNS as *FS-1020MFP @ orangepipc*; pick it and the driver configures itself (IPP Everywhere). From the shell, same result:
+
+```bash
+sudo lpadmin -p FS-1020MFP -E -v ipp://orangepipc.local:631/printers/FS-1020MFP -m everywhere
+sudo lpadmin -d FS-1020MFP
+```
+
+- The client passes documents through unchanged (`-m everywhere` imports the real capabilities); the Pi runs the whole filter chain — that is what the [wrapper](#how-it-works) is for.
+- Use the **direct `ipp://` URI** — `implicitclass://` proxies from `cups-browsed` are known to swallow jobs.
+- Browsers snapshot the printer list at startup — restart Chromium/Firefox after adding the queue.
+
+## Connect a Windows client
+
+The Kyocera **client tool** is the official Windows package for this printer family (Windows only — there is no Linux equivalent, and the Pi needs none):
+
+1. [The downloads page](https://www.kyoceradocumentsolutions.ru/ru/support/downloads.name-L3J1L3J1L21mcC9UQVNLQUxGQTIwMjE=.html) generates a personal link — grab the client tool it offers.
+2. Install it once on the Windows machine.
+3. Open `\\orangepipc` in Explorer and double-click `FS-1020MFP`; Windows asks for a driver. The Pi renders everything, so even the built-in **Microsoft PS Class Driver** prints fine — the client tool's real value here is its device settings, see the next section.
+
+## Printer sleep
+
+The 2012 firmware drops its USB link after a long idle and can look completely dead afterwards — once it needed a physical power cycle to come back. Worth knowing before blaming the driver:
+
+- **No host-side fix exists.** Everything was tried from the Pi and retired — PJL queries, CUPS handshakes, USB re-enumeration, even a two-minute USB poke daemon. Not one of them kept an idle device awake (all of it lives in the git history).
+- **The fix lives on the device.** With the client tool installed (for [Windows clients](#connect-a-windows-client)), select *Kyocera FS-1020MFP GX* → **Конфигурация (Configuration)** → device parameters → set the **sleep timer to the maximum** (up to ~1 week). One-time, and it helps every OS at once.
+
+![Kyocera Client Tool — the Конфигурация tile holds the device's sleep timer](.github/kyocera_client_where_to_click.jpg)
+
+- Until then: jobs simply wait — the Pi's queue never parks (`retry-job`) and prints the moment the device wakes. A panel-button press also wakes it.
 
 ## Uninstall
 
@@ -154,6 +182,7 @@ flowchart LR
 | `wrapper.sh: unsupported architecture` | Host outside x86/ARM — open an issue with `uname -m`. |
 | Filter errors at runtime | `sudo tail -f /var/log/cups/error_log`; add `sudo cupsctl --debug-logging` for full detail. |
 | Wrong page size or orientation | Selected PPD does not match the exact printer model. |
+| Jobs queue forever on a sleeping server | See [Printer sleep](#printer-sleep). |
 
 ## Known upstream problems
 
