@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# install-printer-keepalive.sh — install the Kyocera "printer not turning
-# off" daemon on this host: a USB keepalive (oneshot service + timer).
+# install-printer-keepalive.sh — install the Kyocera "printer not going
+# dead on USB" daemon on this host: usb keepalive (oneshot service + timer).
 #
 # Installs:
 #   /usr/local/sbin/kyocera-keepalive              the probe itself
 #   /etc/systemd/system/kyocera-keepalive.service  oneshot unit
 #   /etc/systemd/system/kyocera-keepalive.timer    every KEEPALIVE_INTERVAL
-#   /etc/default/kyocera-keepalive                 device/queue/read settings
+#   /etc/default/kyocera-keepalive                 queue/recover settings
 #   /etc/modules-load.d/kyocera-keepalive.conf     loads usblp at boot
 #   /etc/udev/rules.d/69-kyocera-keepalive.rules   never autosuspend printer
 #
@@ -98,51 +98,46 @@ fi
 
 cat >"${BIN}" <<'EOF_KEEPALIVE'
 #!/usr/bin/env bash
-# kyocera-keepalive — keep the Kyocera FS-1020MFP out of its un-wakeable
-# deep-sleep state on USB.
+# kyocera-keepalive — keep the Kyocera FS-1020MFP's usb link alive.
 #
-# Two tools, both paper-free:
-#   1. every run sends an empty PJL JOB envelope (the exact UEL/@PJL framing
-#      Kyocera's driver uses around every job) — keeps the interpreter warm,
-#   2. when the usb link has been up for REFRESH_MIN minutes (firmware drops
-#      the link itself ~60 min after any (re)bind, sometimes staying dead for
-#      hours), the daemon re-enumerates the port host-side (authorized 0->1).
-#      A planned few-second blip replaces the firmware's unplanned blackout.
-#
-# On any poke failure it rescans the bus (lpinfo), re-enumerates the port and
-# retries once — that is the same recovery used by manual power cycles of the
-# usb cable, except automated.
+# How it talks to the printer (nothing here can ever form a page):
+#   1. every cycle asks the printer who it is through CUPS' own usb backend
+#      in enumeration mode — the exact open-time interaction of every real
+#      print job: the kernel printer driver churns out and back and the
+#      printer answers with its IEEE-1284 device-id string. A real answer,
+#      zero printable bytes.
+#   2. if the printer stops answering: rescan the bus, re-enumerate the port
+#      host-side (the automated equivalent of a usb cable re-plug), ask again.
+#   3. if an earlier usb blackout left the CUPS queue parked (disabled,
+#      stopped), re-enable it so user jobs never stay stranded.
 set -euo pipefail
 
-device="${KYOCERA_KEEPALIVE_DEVICE:-/dev/usb/lp0}"
+backend="${KYOCERA_KEEPALIVE_BACKEND:-/usr/lib/cups/backend/usb}"
 queue="${KYOCERA_KEEPALIVE_QUEUE:-FS-1020MFP}"
-want_read="${KYOCERA_KEEPALIVE_READ:-1}"
 auto_recover="${KYOCERA_KEEPALIVE_AUTO_RECOVER:-1}"
-refresh_min="${KYOCERA_KEEPALIVE_REFRESH_MIN:-30}"
 
-probe_bytes=$'\x1b%-12345X@PJL\r\n@PJL JOB NAME = "keepalive"\r\n@PJL INFO STATUS\r\n@PJL RDYMSG DISPLAY = ""\r\n@PJL EOJ\r\n\x1b%-12345X'
-
-if [ ! -e "${device}" ]; then
-    device="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
-fi
-if [ -z "${device}" ] || [ ! -e "${device}" ]; then
-    echo "no /dev/usb/lp* node; printer unplugged?" >&2
-    exit 1
-fi
-if [ ! -w "${device}" ]; then
-    echo "${device}: not writable (usblp loaded? user perms?)" >&2
-    exit 1
-fi
-
-# A live CUPS job already keeps the device awake; never interleave with it.
+# A live CUPS job already exercises the printer; never interleave with it.
 pending="$(lpstat -o "${queue}" 2>/dev/null || true)"
 if [ -n "${pending}" ]; then
     echo "${queue}: jobs in queue, skipping this cycle"
     exit 0
 fi
 
+node="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
+if [ -z "${node}" ] || [ ! -e "${node}" ]; then
+    echo "no /dev/usb/lp* node; printer off the bus?" >&2
+    exit 1
+fi
+
+# The printer's own answer: its IEEE-1284 device id. CUPS' usb backend in
+# enumeration mode opens/claims the interface exactly like a real job does.
+printer_answers() {
+    [ -x "${backend}" ] || { echo "${backend}: cups usb backend not found" >&2; return 1; }
+    timeout 25 "${backend}" 2>/dev/null | grep -i 'usb://.*kyocera' | head -n1
+}
+
 # udevadm reports syspaths without the /sys prefix; walk up to the usb
-# device dir that carries the class attributes.
+# device dir that carries the attributes.
 usb_device_dir() {
     local syspath dir i
     syspath="$(udevadm info -q path --name="$1" 2>/dev/null || true)"
@@ -160,41 +155,8 @@ usb_device_dir() {
     return 1
 }
 
-# Empty-job poke; success = the usb write completed.
-poke() {
-    local dev="$1" reply="" ok=0
-    if ! exec 3<>"${dev}"; then
-        echo "${dev}: cannot open usb printer node" >&2
-        return 1
-    fi
-    if timeout 8s bash -c 'printf "%s" "$1" >&3 2>/dev/null' _ "${probe_bytes}"; then
-        ok=1
-    fi
-    if [ "${want_read}" = "1" ]; then
-        reply="$(timeout 2s dd if=/dev/fd/3 bs=256 count=4 2>/dev/null || true)"
-        reply="$(printf '%s' "${reply}" | tr -dc ' -~' | head -c 120)"
-    fi
-    exec 3>&-
-    if [ "${ok}" = "1" ]; then
-        if [ -n "${reply}" ]; then
-            echo "keepalive ok: empty PJL job envelope on ${dev}, printer answered: ${reply}"
-        else
-            echo "keepalive ok: empty PJL job envelope on ${dev}"
-        fi
-        return 0
-    fi
-    echo "${dev}: usb write failed" >&2
-    return 1
-}
-
-# What the usb bus currently reports about the printer (diagnostic; a read
-# of the device id also nudges a lightly wedged interface).
-scan() {
-    lpinfo -v 2>/dev/null | grep -i kyocera || echo "scan: Kyocera not on the usb bus right now" >&2
-}
-
-# Host-side re-enumeration (authorized 0 -> 1). Re-creates the usblp node,
-# which also resets the port's "link age" clock.
+# Host-side re-enumeration (authorized 0 -> 1): the automated equivalent
+# of unplugging and replugging the usb cable.
 reenumerate() {
     local authorized
     authorized="$(usb_device_dir "$1" 2>/dev/null || true)/authorized"
@@ -210,35 +172,41 @@ reenumerate() {
     return 0
 }
 
-# Before the firmware's ~60-min idle fuse blows, refresh the link at
-# a time of our choosing (planned blip) instead of at its whim.
-refresh_if_due() {
-    local dev="$1" age
-    [ "${refresh_min}" -gt 0 ] || return 0
-    age="$(( ($(date +%s) - $(stat -c %Y "$dev" 2>/dev/null || date +%s)) / 60 ))"
-    [ "${age}" -ge "${refresh_min}" ] || return 0
-    echo "usb link ${age} min old — refreshing it now" >&2
-    reenumerate "${dev}" || true
+# Never let an earlier blackout strand the user: CUPS can park the queue
+# (disabled/stopped) after a failed job. lpstat text is localized, so
+# match states, not words.
+ensure_queue_enabled() {
+    if lpstat -p "${queue}" 2>/dev/null | grep -qiE 'disabled|stopped|неактив|останов'; then
+        echo "re-enabling cups queue ${queue}"
+        cupsenable "${queue}" 2>/dev/null || true
+        cupsaccept "${queue}" 2>/dev/null || true
+    fi
     return 0
 }
 
-if poke "${device}"; then
-    refresh_if_due "${device}"
+if answer="$(printer_answers)"; then
+    echo "keepalive ok: printer answered: ${answer}"
+    ensure_queue_enabled
     exit 0
 fi
 
-# Failure path: rescan, re-enumerate and retry once with the fresh node.
-echo "rescanning usb bus for the printer" >&2
-scan
-fresh="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
-[ -n "${fresh}" ] && device="${fresh}"
-if [ "${auto_recover}" = "1" ] && [ -e "${device}" ]; then
-    if reenumerate "${device}" && [ -e "${device}" ] && poke "${device}"; then
-        echo "keepalive recovered after host-side re-enumeration"
-        exit 0
+# Failure path: rescan, re-enumerate and ask again.
+echo "printer did not answer; rescanning usb bus" >&2
+lpinfo -v 2>/dev/null | grep -i kyocera || echo "scan: Kyocera not on the usb bus" >&2
+if [ "${auto_recover}" = "1" ]; then
+    node="$(ls /dev/usb/lp* 2>/dev/null | head -n1 || true)"
+    if [ -n "${node}" ] && [ -e "${node}" ]; then
+        reenumerate "${node}" || true
+        sleep 1
+        if answer="$(printer_answers)"; then
+            echo "keepalive recovered after re-enumeration: ${answer}"
+            ensure_queue_enabled
+            exit 0
+        fi
     fi
 fi
-echo "printer is not responding; will retry next cycle" >&2
+ensure_queue_enabled
+echo "printer is not answering; will retry next cycle" >&2
 exit 1
 EOF_KEEPALIVE
 chmod 755 "${BIN}"
@@ -246,15 +214,12 @@ bash -n "${BIN}"
 
 cat >"${DEFAULT_FILE}" <<EOF_DEFAULTS
 # Settings read by kyocera-keepalive.service before each run.
-KYOCERA_KEEPALIVE_DEVICE=${lp_device}
 KYOCERA_KEEPALIVE_QUEUE=${queue}
-# 1 = read the PJL status reply (costs a couple of seconds), 0 = write-only
-KYOCERA_KEEPALIVE_READ=1
-# 1 = on usb write failure, re-scan the bus and re-enumerate the port, 0 = off
+# 1 = when the printer stops answering: re-scan the bus, re-enumerate the
+#     usb port and retry; 0 = wait for the next cycle instead
 KYOCERA_KEEPALIVE_AUTO_RECOVER=1
-# Refresh the usb link (planned re-enumeration) when it is older than this,
-# before the firmware's ~60-min idle fuse blows. 0 disables the refresh.
-KYOCERA_KEEPALIVE_REFRESH_MIN=30
+# Only if the backend lives somewhere else:
+#KYOCERA_KEEPALIVE_BACKEND=/usr/lib/cups/backend/usb
 EOF_DEFAULTS
 
 cat >"${SVC}" <<'EOF_SERVICE'
@@ -313,18 +278,24 @@ chmod 644 "${DEFAULT_FILE}" "${SVC}" "${TIMER}" "${MLOAD}"
 [ ! -e "${UDEV}" ] || chmod 644 "${UDEV}"
 
 systemctl daemon-reload
+
+# Failed jobs should retry through a usb blackout, not strangle the queue.
+lpadmin -p "${queue}" -o printer-error-policy=retry-job 2>/dev/null || \
+    echo "note: could not set retry-job error policy on ${queue}" >&2
+
 systemctl enable --now kyocera-keepalive.timer
 systemctl start kyocera-keepalive.service || \
     echo "warning: first keepalive run failed; see: journalctl -u kyocera-keepalive -n 20" >&2
 
 echo "printer keepalive installed:"
 echo "  printer: ${lp_device} (usb ${usb_vendor:-?}:${usb_product:-?})"
-echo "  queue:   ${queue}"
-echo "  probe:   every ${interval} (empty PJL job envelope, nothing printable)"
-echo "  link:    re-enumerated host-side above ${KEEPALIVE_REFRESH_MIN:-30} min of age"
+echo "  queue:   ${queue} (error policy: retry-job)"
+echo "  probe:   every ${interval} — asks the printer for its 1284 device id"
+echo "           through the cups usb backend; nothing printable is ever sent"
+echo "  recover: re-enumerates the usb port and re-enables the queue on failure"
 echo "  remove:  sudo $(dirname "$0")/uninstall-printer-keepalive.sh"
 echo "checks:"
 echo "  systemctl list-timers kyocera-keepalive.timer"
 echo "  journalctl -u kyocera-keepalive -n 20"
-echo "config: ${DEFAULT_FILE} (device/queue/reply-reading; applied on next run)"
+echo "config: ${DEFAULT_FILE} (queue/recover; applied on next run)"
 echo "interval: edit OnUnitActiveSec in ${TIMER}, then: systemctl daemon-reload && systemctl restart kyocera-keepalive.timer"
