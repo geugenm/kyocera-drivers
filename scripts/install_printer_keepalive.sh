@@ -12,6 +12,8 @@
 #
 # Usage: sudo ./install-printer-keepalive.sh
 # Optional interval: KEEPALIVE_INTERVAL=5min sudo -E ./install-printer-keepalive.sh
+# The scanner-core probe needs python3-usb (installed automatically if apt
+# has it; the daemon degrades to backend-only probing if it is missing).
 
 set -euo pipefail
 
@@ -100,20 +102,24 @@ cat >"${BIN}" <<'EOF_KEEPALIVE'
 #!/usr/bin/env bash
 # kyocera-keepalive — keep the Kyocera FS-1020MFP's usb link alive.
 #
-# How it talks to the printer (nothing here can ever form a page):
-#   1. every cycle asks the printer who it is through CUPS' own usb backend
-#      in enumeration mode — the exact open-time interaction of every real
-#      print job: the kernel printer driver churns out and back and the
-#      printer answers with its IEEE-1284 device-id string. A real answer,
-#      zero printable bytes.
-#   2. if the printer stops answering: rescan the bus, re-enumerate the port
-#      host-side (the automated equivalent of a usb cable re-plug), ask again.
-#   3. if an earlier usb blackout left the CUPS queue parked (disabled,
-#      stopped), re-enable it so user jobs never stay stranded.
+# The device drops its own usb link roughly once an hour regardless of what
+# the host writes or reads on it (verified 18 oct: data pokes, PJL queries,
+# and usb claim churn don't reset the ~60-min clock that each re-*plug* of
+# the link restarts). Two firmware domains answer anyway, and this daemon
+# talks to BOTH every cycle — nothing printable, ever:
+#   1. the scanner/status core on usb interface 1 (vendor-specific, class
+#      control transaction): the device returns data bytes or a proper
+#      STALL — both are real firmware answers. This is the intimate one.
+#   2. CUPS' usb backend in enumeration mode — the exact open-time
+#      interaction of every real print job: kernel driver churns, and the
+#      printer answers its IEEE-1284 device-id string.
+# If neither domain answers: rescan the bus, re-enumerate the port (the
+# automated equivalent of a usb cable re-plug) and retry once. A queue
+# that an earlier blackout left parked gets re-enabled automatically.
 set -euo pipefail
 
-backend="${KYOCERA_KEEPALIVE_BACKEND:-/usr/lib/cups/backend/usb}"
 queue="${KYOCERA_KEEPALIVE_QUEUE:-FS-1020MFP}"
+backend="${KYOCERA_KEEPALIVE_BACKEND:-/usr/lib/cups/backend/usb}"
 auto_recover="${KYOCERA_KEEPALIVE_AUTO_RECOVER:-1}"
 
 # A live CUPS job already exercises the printer; never interleave with it.
@@ -129,8 +135,37 @@ if [ -z "${node}" ] || [ ! -e "${node}" ]; then
     exit 1
 fi
 
-# The printer's own answer: its IEEE-1284 device id. CUPS' usb backend in
-# enumeration mode opens/claims the interface exactly like a real job does.
+# The scanner/status core (usb interface 1, vendor class). A data reply or
+# a STALL both prove the core processed the request; an idle bulk endpoint
+# is silence, so control transfers are used only.
+scanner_pings() {
+    command -v python3 >/dev/null 2>&1 || return 1
+    python3 - <<'PYSCANNER' 2>/dev/null
+import sys
+try:
+    import usb.core
+except Exception:
+    sys.exit(4)
+dev = usb.core.find(idVendor=0x0482, idProduct=0x0495)
+if dev is None:
+    sys.exit(3)
+for rtype, req in ((0xA1, 0x01), (0x81, 0x00)):
+    try:
+        data = dev.ctrl_transfer(rtype, req, 0, 0x0001, 16)
+        print(bytes(data).hex())
+        sys.exit(0)
+    except usb.core.USBError as e:
+        if getattr(e, "errno", 0) == 32:    # pipe error = STALL = a firmware answer
+            print("stall")
+            sys.exit(0)
+    except Exception:
+        pass
+sys.exit(1)
+PYSCANNER
+}
+
+# The printer side (usb interface 0) via CUPS' own usb backend — exactly
+# what every real print job does at open time: claim churn + device id.
 printer_answers() {
     [ -x "${backend}" ] || { echo "${backend}: cups usb backend not found" >&2; return 1; }
     timeout 25 "${backend}" 2>/dev/null | grep -i 'usb://.*kyocera' | head -n1
@@ -184,6 +219,18 @@ ensure_queue_enabled() {
     return 0
 }
 
+scan_reply="$(scanner_pings || true)"
+if [ -n "${scan_reply}" ]; then
+    echo "keepalive ok: scanner core answered: ${scan_reply}"
+    if answer="$(printer_answers)"; then
+        echo "keepalive ok: printer answered: ${answer}"
+    else
+        echo "note: printer side stayed silent, scanner core only" >&2
+    fi
+    ensure_queue_enabled
+    exit 0
+fi
+
 if answer="$(printer_answers)"; then
     echo "keepalive ok: printer answered: ${answer}"
     ensure_queue_enabled
@@ -198,8 +245,10 @@ if [ "${auto_recover}" = "1" ]; then
     if [ -n "${node}" ] && [ -e "${node}" ]; then
         reenumerate "${node}" || true
         sleep 1
-        if answer="$(printer_answers)"; then
-            echo "keepalive recovered after re-enumeration: ${answer}"
+        scan_reply="$(scanner_pings || true)"
+        answer="$(printer_answers || true)"
+        if [ -n "${scan_reply}" ] || [ -n "${answer}" ]; then
+            echo "keepalive recovered after re-enumeration: ${scan_reply:+scanner ${scan_reply}}${answer:+ printer ${answer}}"
             ensure_queue_enabled
             exit 0
         fi
@@ -279,6 +328,17 @@ chmod 644 "${DEFAULT_FILE}" "${SVC}" "${TIMER}" "${MLOAD}"
 
 systemctl daemon-reload
 
+# The scanner-core probe talks to the vendor interface over python3-usb;
+# installer best effort, the daemon degrades gracefully without it.
+if ! python3 -c 'import usb' 2>/dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y --no-install-recommends python3-usb >/dev/null 2>&1 || \
+            echo "note: python3-usb not installable; scanner-core probe disabled" >&2
+    else
+        echo "note: python3-usb missing; scanner-core probe disabled" >&2
+    fi
+fi
+
 # Failed jobs should retry through a usb blackout, not strangle the queue.
 lpadmin -p "${queue}" -o printer-error-policy=retry-job 2>/dev/null || \
     echo "note: could not set retry-job error policy on ${queue}" >&2
@@ -290,8 +350,9 @@ systemctl start kyocera-keepalive.service || \
 echo "printer keepalive installed:"
 echo "  printer: ${lp_device} (usb ${usb_vendor:-?}:${usb_product:-?})"
 echo "  queue:   ${queue} (error policy: retry-job)"
-echo "  probe:   every ${interval} — asks the printer for its 1284 device id"
-echo "           through the cups usb backend; nothing printable is ever sent"
+echo "  probe:   every ${interval} — pokes both firmware domains:"
+echo "           scanner/status core (usb interface 1) and the cups usb"
+echo "           backend job-open handshake; nothing printable is ever sent"
 echo "  recover: re-enumerates the usb port and re-enables the queue on failure"
 echo "  remove:  sudo $(dirname "$0")/uninstall-printer-keepalive.sh"
 echo "checks:"
