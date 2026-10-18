@@ -53,12 +53,6 @@ endif()
 # directly from the manufacturer.
 option(DOWNLOAD_PPDS "Download and install Kyocera PPD files" OFF)
 
-# The keepalive is an optional add-on for the USB printer: two shell scripts
-# that manage a systemd oneshot + timer keeping the device out of an
-# un-wakeable deep sleep. Basic printing never needs them, so they are only
-# bundled into the package docdir when requested.
-option(KYOCERA_KEEPALIVE_SCRIPTS "Bundle the printer keepalive install/uninstall scripts" OFF)
-
 # ------------------------------------------------------------------
 # CUPS paths — kept independent of GNUInstallDirs libdir because CUPS
 # hardcodes lib/cups/filter on nearly every distribution.
@@ -135,20 +129,6 @@ install(
         GROUP_READ GROUP_EXECUTE
         WORLD_READ WORLD_EXECUTE
 )
-
-if(KYOCERA_KEEPALIVE_SCRIPTS)
-    install(
-        PROGRAMS
-            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/install_printer_keepalive.sh"
-            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/uninstall_printer_keepalive.sh"
-        DESTINATION ${CMAKE_INSTALL_DOCDIR}
-        COMPONENT runtime
-        PERMISSIONS
-            OWNER_READ OWNER_WRITE OWNER_EXECUTE
-            GROUP_READ GROUP_EXECUTE
-            WORLD_READ WORLD_EXECUTE
-    )
-endif()
 
 install(
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/package/icon.png"
