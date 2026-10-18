@@ -116,6 +116,12 @@ flowchart LR
     pi -->|USB| pr[Kyocera FS-1020MFP]
 ```
 
+## Windows clients
+
+Kyocera still distributes a full Windows driver stack for this printer family: the [downloads page](https://www.kyoceradocumentsolutions.ru/ru/support/downloads.name-L3J1L3J1L21mcC9UQVNLQUxGQTIwMjE=.html) generates a personal download link — grab the client-tool package it offers, install it once, then point Windows at the queue the print server shares (`\\orangepipc\fs-1020mfp`) and let it use the just-installed driver.
+
+This repo deliberately ships no host-side keepalive (the daemon experiment was retired — no host-side traffic could stop the device's deep-sleep drop). If deep sleep gets in the way, set the printer's own sleep timer to its maximum (up to ~1 week) from the Kyocera client tool's device settings; jobs queued on the server simply print when the device wakes.
+
 ## Uninstall
 
 ```bash
